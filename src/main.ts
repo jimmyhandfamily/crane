@@ -1,6 +1,6 @@
 import { Engine } from "@babylonjs/core";
 import { createCraneScene } from "./scene/createScene";
-import { initHud } from "./ui/hud";
+import { initHud, setLoadMeter } from "./ui/hud";
 import { getCareerState, getPayTeaseLabel } from "./career/careerStub";
 import {
   initCraneControls,
@@ -18,6 +18,15 @@ function syncGrabButton(attached: boolean): void {
     ? "Release load (Space)"
     : "Grab nearby load (Space)";
   btn.classList.toggle("holding", attached);
+}
+
+function syncLoadMass(
+  crane: { setAttachedLoadMass(kg: number): void },
+  loads: { attached: { massKg: number } | null }
+): void {
+  const kg = loads.attached?.massKg ?? 0;
+  crane.setAttachedLoadMass(kg);
+  setLoadMeter(kg);
 }
 
 function boot(): void {
@@ -63,12 +72,15 @@ function boot(): void {
     yardDressing,
   } = createCraneScene(engine, canvas);
 
+  syncLoadMass(crane, loads);
+
   engine.runRenderLoop(() => {
     const dt = engine.getDeltaTime() / 1000;
     crane.applyInput(getCraneInput(), dt);
     if (consumeGrabPress()) {
       loads.tryToggleGrab(crane.parts);
       syncGrabButton(loads.attached !== null);
+      syncLoadMass(crane, loads);
     }
     loads.update(crane.parts);
     blobShadows.update(crane.parts, loads);
@@ -82,7 +94,7 @@ function boot(): void {
   });
 
   console.info(
-    `[Crane] Grab/place ready — attach≤${ATTACH_DISTANCE}m, ambient traffic + workers, rank=${career.rank}`
+    `[Crane] Grab/place ready — attach≤${ATTACH_DISTANCE}m, sway physics + load meter, ambient traffic + workers, rank=${career.rank}`
   );
 }
 

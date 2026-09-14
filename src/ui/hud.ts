@@ -1,7 +1,15 @@
 /**
  * HTML HUD overlay controller.
  * Markup lives in index.html; this module wires copy and optional stubs.
+ *
+ * Load meter: visual only. Sound cue for overload / settle — future only.
  */
+
+import {
+  LOAD_HEAVY_REF_KG,
+  loadMeterBand,
+  type LoadMeterBand,
+} from "../crane/cranePhysics";
 
 export interface HudOptions {
   title?: string;
@@ -32,9 +40,44 @@ export function initHud(options: HudOptions = {}): void {
   if (payEl) {
     payEl.style.display = opts.showPayTease ? "" : "none";
   }
+
+  // Ensure load meter starts empty
+  setLoadMeter(0);
 }
 
 export function setObjective(text: string): void {
   const el = document.querySelector("#hud-objective .text");
   if (el) el.textContent = text;
+}
+
+/**
+ * Update on-screen load meter from attached mass (kg).
+ * Bands: empty / light / heavy. No audio (stub for future beep).
+ */
+export function setLoadMeter(loadMassKg: number): void {
+  const root = document.getElementById("hud-load");
+  if (!root) return;
+
+  const band: LoadMeterBand = loadMeterBand(loadMassKg);
+  const fill = root.querySelector<HTMLElement>(".load-fill");
+  const label = root.querySelector<HTMLElement>(".load-label");
+  const value = root.querySelector<HTMLElement>(".load-value");
+
+  const pct =
+    loadMassKg <= 0
+      ? 0
+      : Math.min(100, Math.round((loadMassKg / LOAD_HEAVY_REF_KG) * 100));
+
+  root.dataset.band = band;
+  if (fill) fill.style.width = `${pct}%`;
+  if (label) {
+    label.textContent =
+      band === "empty" ? "Empty" : band === "light" ? "Light" : "Heavy";
+  }
+  if (value) {
+    value.textContent =
+      loadMassKg <= 0 ? "0 kg" : `${Math.round(loadMassKg)} kg`;
+  }
+
+  // Future: play soft click / strain beep when band changes — no sound yet.
 }

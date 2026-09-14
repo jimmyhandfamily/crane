@@ -13,49 +13,80 @@
 
 Packages: `@babylonjs/core@^9.26.1`, `vite@^6.3.5`, `typescript@~5.8.3`
 
-## REALISM REFINE (this pass)
+## PHYSICS PASS (this pass)
 
-Visual-only Software Graphics pass. Feature freeze otherwise — controls, loads, hook/load blobShadows, ambient trucks unchanged.
+Kinematic cable/hook pendulum + light boom flex + load mass + load meter HUD.  
+Controls (A/D W/S R/F + pad), grab/place, blob shadows, ambient traffic, workers unchanged in behavior — shadows / attach use **actual** swayed hook world position.
 
-### 1. Workers (priority)
-- Replaced peg bodies in `yardDressing.ts` with articulated hierarchy: `WorkerRoot → Hips → Torso/Head/Hat`; `Hips → LegL/R`; `Torso → ArmL/R`
-- Part sizes: pelvis 0.42×0.28×0.28, torso 0.48×0.55×0.28, head Ø0.28, hardhat dome+brim, arms/legs/boots; height ~1.75–1.85 m
-- Walk: `phase=time*7`; thighs ±sin·0.45; shins `max(0,-sin)·0.35`; arms opposite; bob `abs(sin(phase*2))*0.04`
-- Worker blob shadow discs Ø0.9–1.1 under feet
-- Variants A/B/C: coveralls `#4A6B8A`/`#6B7A5A`, hat `#E5B03A`/`#E07A3D`, vest `#E8B84A`, skin `#C4A882`, boots `#3A3530`
+### Module
+- **`src/crane/cranePhysics.ts`** — spring-damper pendulum (no PhysX)
+- Wired via `craneController.sync` → `physics.update` after kinematic `placeHoist`
+- Exports: `createCranePhysics`, `setWind`, load-meter helpers, tuning constants
 
-### 2. Ground
-- Crane pad + Pad A/B stay flat (hook shadows); pad lip frames added
-- Gravel road raised to y≈0.05–0.06; berms varied 0.4–1.2 m (outside ~25 m of CraneRoot)
-- Mottled dirt tint quads; darker fence grass `#6A8F4E`
-- Tire track strips on gravel `#7A7160`
+### Pendulum / sway
+- Slew, trolley, or hoist velocity changes move the trolley attachment → hook lags and swings
+- Settles with damping over ~**1.5–3 s** after motion stops (longer with heavy load)
+- Quick moves → visible hang sway; slow careful moves → less sway
+- Cable leans from trolley to swayed hook; hook + ring + attached load follow
 
-### 3. Materials / lights
-- Emissive clamped 0–0.015; specular via white scale (dirt 0.02–0.04, concrete `#C8C2B4` @0.18, steel 0.5, yellow 0.3, painted 0.12–0.2)
-- `ambientColor ≈ diffuse*0.55` on shared mats
-- Hemi 0.7, sun 1.05, sun dir `(-0.55,-0.75,-0.35)`
+### Load mass
+| Load | Mass |
+|------|------|
+| Empty hook block | 85 kg (`HOOK_EMPTY_MASS_KG`) |
+| Barrel | 260 kg (`BARREL_MASS_KG`) |
+| Crate | 480 kg × scale (`CRATE_MASS_KG`) |
+
+Heavier → more sway amplitude, slower settle, slightly slower hoist (`HOIST_LOADED_SPEED_FACTOR` 0.72 at heavy ref).
+
+### Boom tip flex
+- Very small spring-damper lag on `BoomRoot` from trolley-local acceleration (≤ ~0.8°)
+- Subtle, not rubber
+
+### Wind stub (future weather)
+```ts
+physics.windForce          // Vector3, default (0,0,0)
+physics.setWind(dir, strength)  // stores force; strength ≤ 0 clears
+```
+Applied as `windForce / mass` in the pendulum integrator. Documented for future weather — no weather sim yet.
+
+### Load meter HUD
+- `#hud-load` top-center gauge: **Empty / Light / Heavy** + kg + bar
+- Updates on grab/release; no sound (stub comment for future beep)
+
+### Tuning constants (report)
+| Constant | Value | Role |
+|----------|-------|------|
+| `SWAY_DAMPING_ZETA` | **0.20** | Base underdamped zeta (empty); settle ~1.5–2.5 s |
+| `SWAY_ACCEL_GAIN` | **0.92** | Support-accel → pendulum coupling |
+| `SWAY_LOAD_GAIN` | **0.38** | Extra sway amplitude at heavy load |
+| `SWAY_LOAD_DAMP_SOFTEN` | **0.55** | Softens zeta when loaded (longer settle) |
+| `SWAY_MAX_ANGLE` | **18°** | Clamp |
+| `PHYS_G` | **9.81** | Gravity |
+| `BOOM_FLEX_GAIN` | **0.00055** | rad per m/s² |
+| `BOOM_FLEX_MAX` | **0.014** rad (~0.8°) | Clamp |
+| `BOOM_FLEX_STIFFNESS` / `DAMPING` | **28** / **9** | Tip spring |
+| `HOIST_LOADED_SPEED_FACTOR` | **0.72** | Hoist mul at `LOAD_HEAVY_REF_KG` (450) |
+| `LOAD_HEAVY_REF_KG` | **450** | Heavy band / hoist ref |
 
 ### Files touched
-- `src/config/palette.ts`
-- `src/scene/materials.ts` · `lights.ts` · `ground.ts` · `yardDressing.ts` · `ambientTraffic.ts` · `props.ts`
+- `src/crane/cranePhysics.ts` (new) · `craneController.ts` · `index.ts`
+- `src/loads/types.ts` · `index.ts` · `src/scene/props.ts`
+- `src/ui/hud.ts` · `index.ts` · `src/main.ts` · `index.html`
 - `STATUS.md`
 
-## Still intact from ambient / M3 / M2 / M1 / M0
-
-- Ambient trucks + gravel driveway path loops + parked van
-- Crane M3 detail; shed + fence; A/D slew · W/S trolley · R/F hoist · Space grab/release
-- Load manager; Pad A/B; blob shadows (hook/load)
+## Still intact
+- Ambient trucks + workers; shed + fence; Pad A/B
+- Blob shadows follow actual hook/load
 - Camera orbit + zoom; career stub HUD
+- Grab attach distance uses swayed `hookRing` world pos
 
 ## Future
-- **Concrete mixer trucks** (not this pass)
-- GLB art swap for named AmbientTruck* / AmbientWorker* meshes
-- Prop density / backdrop buildings
+- Weather / wind driving `setWind`
+- Load-meter / strain **sound** (stub only)
+- Concrete mixer trucks; GLB art swap
 
 ## Caveats
-
-- Still procedural boxes/cylinders — no GLB, no full physics
-- Ambient actors are kinematic only
+- Procedural meshes; kinematic spring (not full PhysX)
 - Git push intentionally out of scope
 
 ## Verify

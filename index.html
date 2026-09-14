@@ -216,6 +216,80 @@
         align-self: center;
         pointer-events: none;
       }
+
+      /* Hook load meter */
+      #hud-load {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(8px);
+        border-radius: 10px;
+        padding: 10px 16px 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        min-width: 180px;
+        pointer-events: none;
+      }
+      #hud-load .load-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+      #hud-load .load-title {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #5a6a75;
+        font-weight: 650;
+      }
+      #hud-load .load-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #2c3a45;
+      }
+      #hud-load .load-value {
+        font-size: 0.7rem;
+        color: #5a6a75;
+        font-variant-numeric: tabular-nums;
+      }
+      #hud-load .load-bar {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(44, 58, 69, 0.12);
+        overflow: hidden;
+      }
+      #hud-load .load-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 999px;
+        background: #8aa0b0;
+        transition: width 0.18s ease, background 0.18s ease;
+      }
+      #hud-load[data-band="empty"] .load-fill {
+        background: #8aa0b0;
+      }
+      #hud-load[data-band="light"] .load-fill {
+        background: #7ba05b;
+      }
+      #hud-load[data-band="heavy"] .load-fill {
+        background: #e8b84a;
+      }
+      #hud-load[data-band="heavy"] .load-label {
+        color: #8a6a18;
+      }
+      @media (max-width: 640px) {
+        #hud-load {
+          top: auto;
+          bottom: 300px;
+          left: 12px;
+          transform: none;
+          min-width: 140px;
+        }
+      }
       @media (max-width: 640px) {
         #crane-pad {
           grid-template-columns: repeat(3, 48px);
@@ -236,6 +310,14 @@
       <div id="hud-title" class="panel">
         <h1>Training Yard</h1>
         <div class="role">Apprentice</div>
+      </div>
+      <div id="hud-load" class="panel" data-band="empty" aria-label="Hook load">
+        <div class="load-head">
+          <span class="load-title">Hook load</span>
+          <span class="load-label">Empty</span>
+          <span class="load-value">0 kg</span>
+        </div>
+        <div class="load-bar"><div class="load-fill"></div></div>
       </div>
       <div id="hud-pay" class="panel">
         Day rate: $0

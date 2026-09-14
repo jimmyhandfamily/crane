@@ -1,4 +1,5 @@
 export type { LoadKind, LoadItem, PadZone, YardLoads } from "./types";
+export { CRATE_MASS_KG, BARREL_MASS_KG } from "./types";
 export {
   createLoadManager,
   ATTACH_DISTANCE,

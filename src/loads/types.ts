@@ -10,6 +10,8 @@ export interface LoadItem {
   halfHeight: number;
   /** Horizontal footprint radius for pad checks (m). */
   radius: number;
+  /** Mass in kilograms — drives sway amplitude, settle time, hoist drag. */
+  massKg: number;
   /** True while parented / following the hook. */
   attached: boolean;
   /** True after a successful place on a pad. */
@@ -33,3 +35,7 @@ export interface YardLoads {
   pads: PadZone[];
   root: TransformNode;
 }
+
+/** Default masses (kg). Crate = heavy, barrel = light. */
+export const CRATE_MASS_KG = 480;
+export const BARREL_MASS_KG = 260;

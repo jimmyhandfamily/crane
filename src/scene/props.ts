@@ -10,6 +10,7 @@ import {
 import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
 import type { LoadItem, PadZone } from "../loads/types";
+import { CRATE_MASS_KG, BARREL_MASS_KG } from "../loads/types";
 
 export interface PropsResult {
   root: TransformNode;
@@ -309,6 +310,7 @@ function createCrate(
     mesh: crate,
     halfHeight: h / 2,
     radius: Math.max(w, d) / 2,
+    massKg: CRATE_MASS_KG * scale,
     attached: false,
     placed: false,
   };
@@ -341,6 +343,7 @@ function createBarrel(
     mesh: barrel as Mesh,
     halfHeight: height / 2,
     radius: diameter / 2,
+    massKg: BARREL_MASS_KG,
     attached: false,
     placed: false,
   };
