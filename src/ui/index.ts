@@ -1,1 +1,1 @@
-export { initHud, setObjective, setLoadMeter, type HudOptions } from "./hud";
+export { initHud, setObjective, setPayTease, setLoadMeter } from "./hud";

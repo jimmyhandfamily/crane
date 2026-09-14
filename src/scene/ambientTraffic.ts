@@ -12,7 +12,7 @@ interface Waypoint {
   z: number;
 }
 
-type TruckKind = "pickup" | "flatbed" | "box";
+type TruckKind = "pickup" | "flatbed" | "box" | "mixer";
 
 interface AmbientTruck {
   root: Object3D;
@@ -192,6 +192,56 @@ function createBoxTruck(name: string, mats: SharedMaterials): Object3D {
   return root;
 }
 
+
+function createMixer(name: string, mats: SharedMaterials): Object3D {
+  // Overall ~9×2.6×3.5 (L×W×H); fat drum ~15° tilt (Graphics proportions).
+  const root = group(name);
+
+  const chassis = box(`${name}_Chassis`, 2.4, 0.45, 7.2, mats.steel, root);
+  chassis.position.set(0, 0.75, -0.4);
+
+  const cab = box(`${name}_Cab`, 2.5, 2.3, 2.5, mats.craneYellow, root);
+  cab.position.set(0, 1.85, 2.9);
+
+  const glass = box(`${name}_Glass`, 2.1, 0.95, 0.12, mats.glassDark, root);
+  glass.position.set(0, 2.15, 4.1);
+
+  const fender = box(`${name}_Fender`, 2.55, 0.35, 1.8, mats.steel, root);
+  fender.position.set(0, 1.05, 3.0);
+
+  // Fat drum: radius ~1.2, length ~4.0, tilted ~15° nose-up toward cab
+  const drum = cyl(`${name}_Drum`, 1.2, 1.2, 4.0, mats.steel, root, 20);
+  drum.rotation.x = Math.PI / 2 + (15 * Math.PI) / 180;
+  drum.position.set(0, 2.15, -1.35);
+
+  const drumCap = cyl(`${name}_DrumCap`, 1.05, 1.05, 0.2, mats.truckWhite, root, 16);
+  drumCap.rotation.x = Math.PI / 2 + (15 * Math.PI) / 180;
+  drumCap.position.set(0, 2.55, 0.55);
+
+  const hopper = box(`${name}_Hopper`, 1.4, 0.7, 1.2, mats.truckWhite, root);
+  hopper.position.set(0, 3.05, 0.9);
+  hopper.rotation.x = 0.2;
+
+  const chute = box(`${name}_Chute`, 0.45, 0.25, 1.6, mats.steel, root);
+  chute.position.set(0.9, 1.35, -3.2);
+  chute.rotation.z = -0.35;
+  chute.rotation.x = 0.25;
+
+  for (const [wx, wz] of [
+    [-1.15, 3.0],
+    [1.15, 3.0],
+    [-1.15, 0.6],
+    [1.15, 0.6],
+    [-1.15, -2.0],
+    [1.15, -2.0],
+    [-1.15, -3.4],
+    [1.15, -3.4],
+  ] as const) {
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5);
+  }
+  return root;
+}
+
 function createParkedVan(mats: SharedMaterials, parent: Object3D): void {
   const van = group("AmbientVanParked", parent);
   van.position.set(-24, 0, 22);
@@ -303,6 +353,13 @@ export function createAmbientTraffic(
       build: () => createBoxTruck("AmbientTruck3", mats),
       startWait: 22,
       speed: 7.5,
+    },
+    {
+      name: "AmbientMixer1",
+      kind: "mixer",
+      build: () => createMixer("AmbientMixer1", mats),
+      startWait: 33,
+      speed: 7.0,
     },
   ];
 

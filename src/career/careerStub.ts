@@ -1,6 +1,6 @@
 /**
- * Career stub module (Milestone 0).
- * No real progression — placeholder API for later milestones.
+ * Career stub — session-only progression (module state, no persistence).
+ * Win beat: bump day rate + jobsCompleted for HUD pay tease.
  */
 
 export type CareerRank = "Apprentice" | "Journeyman" | "Operator" | "Master";
@@ -29,12 +29,13 @@ export function resetCareerStub(): void {
   state = { ...INITIAL };
 }
 
-/** Stub — does nothing meaningful in M0. */
+/** Session win: bump day rate (+$120, or $0 → $240 on first), +1 job. Rank stays Apprentice. */
 export function recordJobComplete(_jobId: string): void {
-  // Progression wired in a later milestone
+  const bump = state.dayRate === 0 ? 240 : 120;
   state = {
     ...state,
-    jobsCompleted: state.jobsCompleted + 0, // intentional no-op bump
+    jobsCompleted: state.jobsCompleted + 1,
+    dayRate: state.dayRate + bump,
   };
 }
 

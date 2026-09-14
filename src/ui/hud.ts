@@ -50,6 +50,16 @@ export function setObjective(text: string): void {
   if (el) el.textContent = text;
 }
 
+export function setPayTease(dayRate: number, stub?: string): void {
+  const payEl = document.getElementById("hud-pay");
+  if (!payEl) return;
+  const stubHtml = stub
+    ? `<div class="stub">${stub}</div>`
+    : `<div class="stub">Pay unlocks later — stub</div>`;
+  payEl.innerHTML = `Day rate: $${dayRate}${stubHtml}`;
+  payEl.style.display = "";
+}
+
 export function setLoadMeter(loadMassKg: number): void {
   const root = document.getElementById("hud-load");
   if (!root) return;

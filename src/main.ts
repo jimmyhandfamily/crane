@@ -1,11 +1,12 @@
-import { WebGLRenderer, Clock, SRGBColorSpace } from "three";
+import { WebGLRenderer, Clock, SRGBColorSpace, Vector3 } from "three";
 import { createCraneScene } from "./scene/createScene";
-import { initHud, setLoadMeter } from "./ui/hud";
-import { getCareerState, getPayTeaseLabel } from "./career/careerStub";
+import { initHud, setLoadMeter, setPayTease } from "./ui/hud";
+import { getCareerState } from "./career/careerStub";
 import {
   initCraneControls,
   getCraneInput,
   consumeGrabPress,
+  HOOK_EMPTY_MASS_KG,
 } from "./crane";
 import { ATTACH_DISTANCE } from "./loads";
 
@@ -43,10 +44,7 @@ function boot(): void {
     showPayTease: true,
   });
 
-  const payEl = document.getElementById("hud-pay");
-  if (payEl) {
-    payEl.innerHTML = `${getPayTeaseLabel()}<div class="stub">Pay unlocks later — stub</div>`;
-  }
+  setPayTease(career.dayRate, "Pay unlocks later — stub");
 
   const hintEl = document.getElementById("hud-hint");
   if (hintEl) {
@@ -81,9 +79,22 @@ function boot(): void {
 
   const clock = new Clock();
 
+  // Gentle ambient wind: strength 0.15–0.35 (accel-equivalent on empty hook),
+  // slow direction drift — subtle empty-hook sway, much milder than old physics.
+  let windT = 0;
+  const windDir = new Vector3(1, 0, 0);
+
   function frame(): void {
     requestAnimationFrame(frame);
     const dt = Math.min(clock.getDelta(), 0.1);
+
+    windT += dt;
+    const windAngle = windT * 0.06;
+    windDir.set(Math.cos(windAngle), 0, Math.sin(windAngle));
+    const windStrength = 0.25 + 0.1 * Math.sin(windT * 0.21); // 0.15–0.35
+    // setWind stores a force; scale by empty hook mass so the numeric range
+    // matches ~0.15–0.35 m/s² on an empty hook (loaded = milder).
+    crane.physics.setWind(windDir, windStrength * HOOK_EMPTY_MASS_KG);
 
     crane.applyInput(getCraneInput(), dt);
     if (consumeGrabPress()) {
@@ -109,7 +120,7 @@ function boot(): void {
   });
 
   console.info(
-    `[Crane] Three.js grab/place ready — attach≤${ATTACH_DISTANCE}m, mild sway + load meter, ambient traffic + workers, rank=${career.rank}`
+    `[Crane] Three.js grab/place ready — attach≤${ATTACH_DISTANCE}m, mild sway + aim highlight + gentle wind, ambient mixer, rank=${career.rank}`
   );
 }
 

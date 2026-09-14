@@ -21,14 +21,25 @@ Packages: `three@^0.186`, `@types/three`, `vite@^6.3.5`, `typescript@~5.8.3`
 - **UI:** removed stray blue grab-bar look overlapping the pad (steel-neutral Grab); pad `z-index: 30`; mobile pad flush to bottom (no sky-blue body strip).
 - **Hook blob shadow:** Y sits on highest surface under hook (ground / pad top / unattached load top) so the disc lands on crate tops and pads for clear aim — not always flat ground.
 
-## Port notes
+## Grab aim highlight
 
-- Scene graph: `Object3D` / `Mesh` instead of Babylon TransformNode/Mesh
-- Camera: `OrbitControls` (polar ≈ ArcRotate beta), pan disabled, zoom clamps
-- Materials: `MeshStandardMaterial` (soft cartoon-real)
-- Fog: `FogExp2`; lights: Hemisphere + Ambient + Directional
-- Blob shadows: canvas radial texture on discs (no shadow maps); surface-aware Y
-- Same folder layout as Babylon M3; git history kept
+- When hook is within existing attach thresholds (`ATTACH_DISTANCE` 1.25 m, `ATTACH_HORIZONTAL_MAX` 1.1 m), the nearest free load gets emissive tint + slight edge outline.
+- Cleared when leaving range or after grab (attached).
+
+## Career / pay stub beat
+
+- On win (crate on Pad A or B): `recordJobComplete` bumps session day rate ($0 → $240 first win, else +$120); HUD pay updates; objective → “Lesson 1 complete…”.
+- Rank stays **Apprentice**. Session-only module state (no persistence).
+
+## Ambient concrete mixer
+
+- `AmbientMixer1`: cab + tilted fat drum (~15°), overall ~9×2.6×3.5. Same gravel `EDGE_PATH` as other trucks, staggered `startWait: 33`.
+
+## Gentle wind
+
+- Each frame: `crane.physics.setWind(dir, strength * HOOK_EMPTY_MASS_KG)`.
+- Strength varies **0.15–0.35** (accel-equivalent on empty hook); direction drifts slowly (`~0.06 rad/s`).
+- Empty hook gets subtle ongoing sway; still much milder than old exaggerated physics. Loaded hook feels even milder (`force / totalMass`).
 
 ## Physics (milder than Babylon M3 — Jimmy feedback)
 
@@ -52,6 +63,15 @@ Real crane cable feel, not playground swing:
 - Control pad stays bottom-right; load meter slim top-center
 - Grab button steel-neutral (no blue rectangle over pad)
 
+## Port notes
+
+- Scene graph: `Object3D` / `Mesh` instead of Babylon TransformNode/Mesh
+- Camera: `OrbitControls` (polar ≈ ArcRotate beta), pan disabled, zoom clamps
+- Materials: `MeshStandardMaterial` (soft cartoon-real)
+- Fog: `FogExp2`; lights: Hemisphere + Ambient + Directional
+- Blob shadows: canvas radial texture on discs (no shadow maps); surface-aware Y
+- Same folder layout as Babylon M3; git history kept
+
 ## Babylon features dropped / changed
 
 - `@babylonjs/core` Engine / Scene / ArcRotateCamera / StandardMaterial / MeshBuilder
@@ -59,7 +79,7 @@ Real crane cable feel, not playground swing:
 - PhysX never used (kinematic spring kept)
 - `DynamicTexture` → canvas `CanvasTexture`
 - Mesh `parent` setter → `add` / `remove` + reparent to props root
-- Career progression still stub only
+- Career: session pay tease on Lesson 1 win (still stub rank)
 
 ## Verify
 
