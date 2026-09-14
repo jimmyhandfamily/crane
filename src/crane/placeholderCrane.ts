@@ -15,10 +15,43 @@ import type { SharedMaterials } from "../scene/materials";
  * BoomRoot, Boom, JibTip, Cable, Hook,
  * OutriggerN, OutriggerE, OutriggerS, OutriggerW
  */
+
+/** Boom local-Z span for trolley travel (meters along BoomRoot). */
+export const BOOM_LENGTH = 36;
+export const TROLLEY_Z_MIN = 6;
+export const TROLLEY_Z_MAX = BOOM_LENGTH + 0.5; // near JibTip
+export const CABLE_LENGTH_MIN = 2;
+/** Soft max — also limited by ground clearance in the controller. */
+export const CABLE_LENGTH_MAX = 38;
+
+export interface CraneParts {
+  root: TransformNode;
+  /** Rotates for slew (yaw). Holds cab, boom, counterweight. */
+  slewing: TransformNode;
+  turntable: Mesh;
+  boomRoot: TransformNode;
+  boom: Mesh;
+  jibTip: Mesh;
+  /** Moves along boom local +Z (trolley). */
+  trolley: TransformNode;
+  cable: Mesh;
+  hook: Mesh;
+  hookRing: Mesh;
+  /** World Y of BoomRoot (trolley attachment height). */
+  boomWorldY: number;
+  trolleyZMin: number;
+  trolleyZMax: number;
+  cableLengthMin: number;
+  cableLengthMax: number;
+  /** Initial trolley Z / cable length used at spawn. */
+  initialTrolleyZ: number;
+  initialCableLength: number;
+}
+
 export function createPlaceholderCrane(
   scene: Scene,
   mats: SharedMaterials
-): TransformNode {
+): CraneParts {
   const CraneRoot = new TransformNode("CraneRoot", scene);
   CraneRoot.position = new Vector3(0, 0, 0);
 
@@ -57,11 +90,7 @@ export function createPlaceholderCrane(
       { width: 1.2, height: 0.2, depth: 1.2 },
       scene
     );
-    foot.position = new Vector3(
-      o.pos.x * 1.55,
-      0.1,
-      o.pos.z * 1.55
-    );
+    foot.position = new Vector3(o.pos.x * 1.55, 0.1, o.pos.z * 1.55);
     foot.material = mats.craneYellow;
     foot.parent = CraneRoot;
   }
@@ -93,7 +122,7 @@ export function createPlaceholderCrane(
 
   const mastTopY = 0.8 + sections * sectionH;
 
-  // --- Turntable ---
+  // --- Turntable (mesh; yaw driven via SlewingAssembly) ---
   const Turntable = MeshBuilder.CreateCylinder(
     "Turntable",
     { height: 1.2, diameter: 3.5, tessellation: 24 },
@@ -152,7 +181,7 @@ export function createPlaceholderCrane(
   BoomRoot.parent = slewing;
   BoomRoot.position = new Vector3(0, 2.4, 0);
 
-  const boomLength = 36;
+  const boomLength = BOOM_LENGTH;
   const Boom = MeshBuilder.CreateBox(
     "Boom",
     { width: 1.0, height: 1.0, depth: boomLength },
@@ -183,39 +212,85 @@ export function createPlaceholderCrane(
   JibTip.material = mats.steel;
   JibTip.parent = BoomRoot;
 
-  // --- Cable + Hook (hanging near mid-jib for visibility) ---
-  const cableDrop = 18;
-  const cableX = 0;
-  const cableZ = 22;
+  // --- Trolley + Cable + Hook ---
+  const initialTrolleyZ = 22;
+  const initialCableLength = 18;
+  const boomWorldY = mastTopY + 1.2 + 2.4; // ~40.4 m
+
+  const trolley = new TransformNode("Trolley", scene);
+  trolley.parent = BoomRoot;
+  trolley.position = new Vector3(0, 0, initialTrolleyZ);
+
+  // Small trolley carriage visual (not a required name)
+  const trolleyBody = MeshBuilder.CreateBox(
+    "TrolleyBody",
+    { width: 0.9, height: 0.35, depth: 0.9 },
+    scene
+  );
+  trolleyBody.position = new Vector3(0, -0.55, 0);
+  trolleyBody.material = mats.steel;
+  trolleyBody.parent = trolley;
 
   const Cable = MeshBuilder.CreateCylinder(
     "Cable",
-    { height: cableDrop, diameter: 0.08, tessellation: 8 },
+    { height: 1, diameter: 0.08, tessellation: 8 },
     scene
   );
-  Cable.position = new Vector3(cableX, -cableDrop / 2, cableZ);
   Cable.material = mats.steel;
-  Cable.parent = BoomRoot;
+  Cable.parent = trolley;
 
   const Hook = MeshBuilder.CreateBox(
     "Hook",
     { width: 0.6, height: 0.9, depth: 0.4 },
     scene
   );
-  Hook.position = new Vector3(cableX, -cableDrop - 0.45, cableZ);
   Hook.material = mats.craneYellow;
-  Hook.parent = BoomRoot;
+  Hook.parent = trolley;
 
-  // Hook throat (visual)
   const hookRing = MeshBuilder.CreateTorus(
     "HookRing",
     { diameter: 0.5, thickness: 0.1, tessellation: 16 },
     scene
   ) as Mesh;
-  hookRing.position = new Vector3(cableX, -cableDrop - 1.0, cableZ);
   hookRing.rotation.x = Math.PI / 2;
   hookRing.material = mats.steel;
-  hookRing.parent = BoomRoot;
+  hookRing.parent = trolley;
 
-  return CraneRoot;
+  // Place cable/hook for initial length
+  placeHoist(Cable, Hook, hookRing, initialCableLength);
+
+  return {
+    root: CraneRoot,
+    slewing,
+    turntable: Turntable,
+    boomRoot: BoomRoot,
+    boom: Boom,
+    jibTip: JibTip,
+    trolley,
+    cable: Cable,
+    hook: Hook,
+    hookRing,
+    boomWorldY,
+    trolleyZMin: TROLLEY_Z_MIN,
+    trolleyZMax: TROLLEY_Z_MAX,
+    cableLengthMin: CABLE_LENGTH_MIN,
+    cableLengthMax: CABLE_LENGTH_MAX,
+    initialTrolleyZ,
+    initialCableLength,
+  };
+}
+
+/** Position Cable / Hook / HookRing under the trolley for a given cable length. */
+export function placeHoist(
+  cable: Mesh,
+  hook: Mesh,
+  hookRing: Mesh,
+  cableLength: number
+): void {
+  // Cable is unit-height cylinder; scale Y and center it between boom and hook top
+  cable.scaling.y = Math.max(cableLength, 0.05);
+  cable.position = new Vector3(0, -cableLength / 2, 0);
+
+  hook.position = new Vector3(0, -cableLength - 0.45, 0);
+  hookRing.position = new Vector3(0, -cableLength - 1.0, 0);
 }

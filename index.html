@@ -114,6 +114,97 @@
         background: rgba(255, 255, 255, 0.55);
         padding: 6px 12px;
         border-radius: 8px;
+        white-space: nowrap;
+        max-width: 96vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* On-screen crane control pad — hold to move */
+      #crane-pad {
+        position: absolute;
+        right: 16px;
+        bottom: 24px;
+        display: grid;
+        grid-template-columns: repeat(3, 56px);
+        grid-template-rows: repeat(3, 48px);
+        gap: 6px;
+        pointer-events: auto;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+      }
+      #crane-pad .pad-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+        color: #2c3a45;
+        font-size: 0.7rem;
+        font-weight: 650;
+        cursor: pointer;
+        line-height: 1.15;
+        padding: 4px;
+      }
+      #crane-pad .pad-btn .key {
+        font-size: 0.62rem;
+        font-weight: 600;
+        color: #5a6a75;
+        letter-spacing: 0.04em;
+      }
+      #crane-pad .pad-btn.active {
+        background: rgba(232, 184, 74, 0.95);
+        color: #3a3018;
+        transform: scale(0.96);
+      }
+      #crane-pad .pad-btn.active .key {
+        color: #5a4820;
+      }
+      #crane-pad .pad-spacer {
+        visibility: hidden;
+        pointer-events: none;
+      }
+      /* Layout:
+           [Raise R] [Out W] [Slew D]
+           [Lower F] [In  S] [Slew A]
+         Actually use a clearer 2-col + slew row:
+           spacer | Out W | spacer
+           Slew A | In S  | Slew D
+           Raise R| Lower F | (or hoist column)
+         Better compact pad:
+           R raise | W out | D right
+           F lower | S in  | A left
+      */
+      #crane-pad .btn-raise { grid-column: 1; grid-row: 1; }
+      #crane-pad .btn-out   { grid-column: 2; grid-row: 1; }
+      #crane-pad .btn-right { grid-column: 3; grid-row: 1; }
+      #crane-pad .btn-lower { grid-column: 1; grid-row: 2; }
+      #crane-pad .btn-in    { grid-column: 2; grid-row: 2; }
+      #crane-pad .btn-left  { grid-column: 3; grid-row: 2; }
+      #crane-pad .pad-label {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        font-size: 0.65rem;
+        color: rgba(44, 58, 69, 0.55);
+        text-align: center;
+        align-self: center;
+        pointer-events: none;
+      }
+      @media (max-width: 640px) {
+        #crane-pad {
+          grid-template-columns: repeat(3, 48px);
+          grid-template-rows: repeat(3, 44px);
+          right: 10px;
+          bottom: 90px;
+        }
+        #hud-hint {
+          bottom: 210px;
+          font-size: 0.68rem;
+        }
       }
     </style>
   </head>
@@ -130,9 +221,30 @@
       </div>
       <div id="hud-objective" class="panel">
         <div class="label">Objective</div>
-        <div class="text">Look around the yard. Get a feel for the crane.</div>
+        <div class="text">Practice slew, trolley, and hoist. No loads yet.</div>
       </div>
-      <div id="hud-hint">Drag to orbit · Scroll to zoom</div>
+      <div id="hud-hint">A/D slew · W/S trolley · R/F hoist · Drag orbit · Scroll zoom</div>
+      <div id="crane-pad" class="panel" aria-label="Crane controls">
+        <button type="button" class="pad-btn btn-raise" data-axis="hoist" data-dir="1" title="Raise hook (R)">
+          Raise<span class="key">R</span>
+        </button>
+        <button type="button" class="pad-btn btn-out" data-axis="trolley" data-dir="1" title="Trolley out (W)">
+          Out<span class="key">W</span>
+        </button>
+        <button type="button" class="pad-btn btn-right" data-axis="slew" data-dir="1" title="Slew right (D)">
+          Right<span class="key">D</span>
+        </button>
+        <button type="button" class="pad-btn btn-lower" data-axis="hoist" data-dir="-1" title="Lower hook (F)">
+          Lower<span class="key">F</span>
+        </button>
+        <button type="button" class="pad-btn btn-in" data-axis="trolley" data-dir="-1" title="Trolley in (S)">
+          In<span class="key">S</span>
+        </button>
+        <button type="button" class="pad-btn btn-left" data-axis="slew" data-dir="-1" title="Slew left (A)">
+          Left<span class="key">A</span>
+        </button>
+        <div class="pad-label">Hold buttons · camera drag free</div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

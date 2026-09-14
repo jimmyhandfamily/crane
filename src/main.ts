@@ -2,6 +2,7 @@ import { Engine } from "@babylonjs/core";
 import { createCraneScene } from "./scene/createScene";
 import { initHud } from "./ui/hud";
 import { getCareerState, getPayTeaseLabel } from "./career/careerStub";
+import { initCraneControls, getCraneInput } from "./crane";
 
 function boot(): void {
   const canvas = document.getElementById("renderCanvas");
@@ -14,7 +15,7 @@ function boot(): void {
   initHud({
     title: "Training Yard",
     role: career.rank,
-    objective: "Look around the yard. Get a feel for the crane.",
+    objective: "Practice slew, trolley, and hoist. No loads yet.",
     showPayTease: true,
   });
 
@@ -23,15 +24,25 @@ function boot(): void {
     payEl.innerHTML = `${getPayTeaseLabel()}<div class="stub">Pay unlocks later — stub</div>`;
   }
 
+  const hintEl = document.getElementById("hud-hint");
+  if (hintEl) {
+    hintEl.textContent =
+      "A/D slew · W/S trolley · R/F hoist · Drag orbit · Scroll zoom";
+  }
+
+  initCraneControls();
+
   const engine = new Engine(canvas, true, {
     preserveDrawingBuffer: true,
     stencil: true,
     adaptToDeviceRatio: true,
   });
 
-  const { scene } = createCraneScene(engine, canvas);
+  const { scene, crane } = createCraneScene(engine, canvas);
 
   engine.runRenderLoop(() => {
+    const dt = engine.getDeltaTime() / 1000;
+    crane.applyInput(getCraneInput(), dt);
     scene.render();
   });
 
@@ -40,7 +51,7 @@ function boot(): void {
   });
 
   console.info(
-    `[Crane M0] Training yard ready — rank=${career.rank}, yard=100m, crane≈40m`
+    `[Crane M1] Kinematic controls ready — rank=${career.rank}, A/D slew, W/S trolley, R/F hoist`
   );
 }
 

@@ -6,7 +6,11 @@ import {
 } from "@babylonjs/core";
 import { Palette } from "../config/palette";
 import { createOrbitCamera } from "../camera/orbitCamera";
-import { createPlaceholderCrane } from "../crane/placeholderCrane";
+import {
+  createPlaceholderCrane,
+  createCraneController,
+  type CraneController,
+} from "../crane";
 import { createGround } from "./ground";
 import { createLights } from "./lights";
 import { createSharedMaterials } from "./materials";
@@ -15,6 +19,7 @@ import { createProps } from "./props";
 export interface CraneScene {
   scene: Scene;
   engine: Engine;
+  crane: CraneController;
 }
 
 export function createCraneScene(
@@ -36,8 +41,9 @@ export function createCraneScene(
 
   const mats = createSharedMaterials(scene);
   createGround(scene, mats);
-  createPlaceholderCrane(scene, mats);
+  const parts = createPlaceholderCrane(scene, mats);
+  const crane = createCraneController(parts);
   createProps(scene, mats);
 
-  return { scene, engine };
+  return { scene, engine, crane };
 }
