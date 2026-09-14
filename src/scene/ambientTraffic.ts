@@ -335,7 +335,7 @@ function createGravelRoad(
     { width: 22, height: 7 },
     scene
   );
-  westOuter.position = new Vector3(-44, 0.03, 0);
+  westOuter.position = new Vector3(-44, 0.05, 0);
   westOuter.material = mats.gravel;
   westOuter.parent = roadRoot;
   westOuter.receiveShadows = true;
@@ -345,7 +345,7 @@ function createGravelRoad(
     { width: 20, height: 3.2 },
     scene
   );
-  westCenter.position = new Vector3(-44, 0.04, 0);
+  westCenter.position = new Vector3(-44, 0.06, 0);
   westCenter.material = mats.gravelLight;
   westCenter.parent = roadRoot;
 
@@ -355,7 +355,7 @@ function createGravelRoad(
     { width: 7, height: 44 },
     scene
   );
-  edgeOuter.position = new Vector3(-42, 0.03, 20);
+  edgeOuter.position = new Vector3(-42, 0.05, 20);
   edgeOuter.material = mats.gravel;
   edgeOuter.parent = roadRoot;
   edgeOuter.receiveShadows = true;
@@ -365,7 +365,7 @@ function createGravelRoad(
     { width: 3.2, height: 42 },
     scene
   );
-  edgeCenter.position = new Vector3(-42, 0.04, 20);
+  edgeCenter.position = new Vector3(-42, 0.06, 20);
   edgeCenter.material = mats.gravelLight;
   edgeCenter.parent = roadRoot;
 
@@ -375,7 +375,7 @@ function createGravelRoad(
     { width: 10, height: 7 },
     scene
   );
-  spurOuter.position = new Vector3(-36, 0.03, 24);
+  spurOuter.position = new Vector3(-36, 0.05, 24);
   spurOuter.material = mats.gravel;
   spurOuter.parent = roadRoot;
 
@@ -384,7 +384,7 @@ function createGravelRoad(
     { width: 7, height: 3.2 },
     scene
   );
-  spurCenter.position = new Vector3(-36, 0.04, 24);
+  spurCenter.position = new Vector3(-36, 0.06, 24);
   spurCenter.material = mats.gravelLight;
   spurCenter.parent = roadRoot;
 
@@ -394,7 +394,7 @@ function createGravelRoad(
     { width: 7, height: 20 },
     scene
   );
-  northOuter.position = new Vector3(0, 0.03, 44);
+  northOuter.position = new Vector3(0, 0.05, 44);
   northOuter.material = mats.gravel;
   northOuter.parent = roadRoot;
 
@@ -403,7 +403,7 @@ function createGravelRoad(
     { width: 3.2, height: 18 },
     scene
   );
-  northCenter.position = new Vector3(0, 0.04, 44);
+  northCenter.position = new Vector3(0, 0.06, 44);
   northCenter.material = mats.gravelLight;
   northCenter.parent = roadRoot;
 
@@ -413,7 +413,7 @@ function createGravelRoad(
     { width: 36, height: 7 },
     scene
   );
-  connOuter.position = new Vector3(-18, 0.03, 42);
+  connOuter.position = new Vector3(-18, 0.05, 42);
   connOuter.material = mats.gravel;
   connOuter.parent = roadRoot;
 
@@ -422,9 +422,29 @@ function createGravelRoad(
     { width: 34, height: 3.2 },
     scene
   );
-  connCenter.position = new Vector3(-18, 0.04, 42);
+  connCenter.position = new Vector3(-18, 0.06, 42);
   connCenter.material = mats.gravelLight;
   connCenter.parent = roadRoot;
+
+  // Tire track strips on gravel (#7A7160) — dual ruts along main runs
+  const tracks: { name: string; w: number; d: number; x: number; z: number }[] = [
+    { name: "TireTrackWestL", w: 18, d: 0.45, x: -44, z: -1.1 },
+    { name: "TireTrackWestR", w: 18, d: 0.45, x: -44, z: 1.1 },
+    { name: "TireTrackEdgeL", w: 0.45, d: 40, x: -43.1, z: 20 },
+    { name: "TireTrackEdgeR", w: 0.45, d: 40, x: -40.9, z: 20 },
+    { name: "TireTrackSpurL", w: 8, d: 0.45, x: -36, z: 22.9 },
+    { name: "TireTrackSpurR", w: 8, d: 0.45, x: -36, z: 25.1 },
+    { name: "TireTrackConnL", w: 32, d: 0.45, x: -18, z: 40.9 },
+    { name: "TireTrackConnR", w: 32, d: 0.45, x: -18, z: 43.1 },
+    { name: "TireTrackNorthL", w: 0.45, d: 16, x: -1.1, z: 44 },
+    { name: "TireTrackNorthR", w: 0.45, d: 16, x: 1.1, z: 44 },
+  ];
+  for (const t of tracks) {
+    const strip = MeshBuilder.CreateGround(t.name, { width: t.w, height: t.d }, scene);
+    strip.position = new Vector3(t.x, 0.065, t.z);
+    strip.material = mats.tireTrack;
+    strip.parent = roadRoot;
+  }
 }
 
 /**

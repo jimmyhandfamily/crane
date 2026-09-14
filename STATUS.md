@@ -13,45 +13,38 @@
 
 Packages: `@babylonjs/core@^9.26.1`, `vite@^6.3.5`, `typescript@~5.8.3`
 
-## Ambient liveliness (this pass)
+## REALISM REFINE (this pass)
 
-Other equipment working; trucks randomly coming and going. **Concrete mixer trucks = future — NOT this pass.**
+Visual-only Software Graphics pass. Feature freeze otherwise — controls, loads, hook/load blobShadows, ambient trucks unchanged.
 
-### Gravel driveway
-- Warm gray-tan gravel strip (`#9A8F7A` + lighter center `#B0A48C`) through **west gate → west edge → shed spur → north exit**
-- Readable from high cam; named `GravelDriveway` / segment meshes
+### 1. Workers (priority)
+- Replaced peg bodies in `yardDressing.ts` with articulated hierarchy: `WorkerRoot → Hips → Torso/Head/Hat`; `Hips → LegL/R`; `Torso → ArmL/R`
+- Part sizes: pelvis 0.42×0.28×0.28, torso 0.48×0.55×0.28, head Ø0.28, hardhat dome+brim, arms/legs/boots; height ~1.75–1.85 m
+- Walk: `phase=time*7`; thighs ±sin·0.45; shins `max(0,-sin)·0.35`; arms opposite; bob `abs(sin(phase*2))*0.04`
+- Worker blob shadow discs Ø0.9–1.1 under feet
+- Variants A/B/C: coveralls `#4A6B8A`/`#6B7A5A`, hat `#E5B03A`/`#E07A3D`, vest `#E8B84A`, skin `#C4A882`, boots `#3A3530`
 
-### Ambient trucks (kinematic)
-| Mesh | Type | Look |
-|------|------|------|
-| `AmbientTruck1` | Pickup ~5.5×2×1.9 | White `#E8E0D4` cab + steel bed |
-| `AmbientTruck2` | Flatbed ~7×2.4×2.2 | Blue `#7A9BB0` cab + steel deck |
-| `AmbientTruck3` | Box truck ~8×2.5×3.2 | Yellow cab + cream box |
-| `AmbientVanParked` | Idle van | Blue, parked near shed |
+### 2. Ground
+- Crane pad + Pad A/B stay flat (hook shadows); pad lip frames added
+- Gravel road raised to y≈0.05–0.06; berms varied 0.4–1.2 m (outside ~25 m of CraneRoot)
+- Mottled dirt tint quads; darker fence grass `#6A8F4E`
+- Tire track strips on gravel `#7A7160`
 
-**Path behavior:** Drive in west gate → along west fence (clear of Pad A/B) → brief pause near shed (~2.5–4.5s) → continue out north gate → wait offsite 8–18s (staggered) → loop. Chunky wheels; no physics.
-
-### Dirt berms
-- `DirtBerm1`–`DirtBerm5` chunky mounds (`#A8906A` / `#8B7355`) at fence corners / edges
-
-### Workers (kinematic)
-- `AmbientWorker1`–`AmbientWorker4`: box people, hardhats (`#E5B03A` / `#E07A3D`), coveralls (`#4A6B8A` / `#6B7A5A`), optional vest `#E8B84A`
-- Walk loops near shed, north fence, Pad A edge, east/Pad B edge — clear of crane center
+### 3. Materials / lights
+- Emissive clamped 0–0.015; specular via white scale (dirt 0.02–0.04, concrete `#C8C2B4` @0.18, steel 0.5, yellow 0.3, painted 0.12–0.2)
+- `ambientColor ≈ diffuse*0.55` on shared mats
+- Hemi 0.7, sun 1.05, sun dir `(-0.55,-0.75,-0.35)`
 
 ### Files touched
-- `src/config/palette.ts` — gravel / berm / vehicle / worker hexes
-- `src/scene/materials.ts` — matching mats
-- `src/scene/ambientTraffic.ts` — gravel road + trucks + parked van
-- `src/scene/yardDressing.ts` — berms + workers
-- `src/scene/createScene.ts` / `main.ts` / `scene/index.ts`
+- `src/config/palette.ts`
+- `src/scene/materials.ts` · `lights.ts` · `ground.ts` · `yardDressing.ts` · `ambientTraffic.ts` · `props.ts`
 - `STATUS.md`
 
-## Still intact from M3 / M2 / M1 / M0
+## Still intact from ambient / M3 / M2 / M1 / M0
 
-- Crane M3 detail (boom X-frames, cab glass, cable, hook, outriggers, tracks)
-- Shed + yard fence
-- A/D slew · W/S trolley · R/F hoist · Space grab/release
-- Load manager; Pad A/B; blob shadows
+- Ambient trucks + gravel driveway path loops + parked van
+- Crane M3 detail; shed + fence; A/D slew · W/S trolley · R/F hoist · Space grab/release
+- Load manager; Pad A/B; blob shadows (hook/load)
 - Camera orbit + zoom; career stub HUD
 
 ## Future

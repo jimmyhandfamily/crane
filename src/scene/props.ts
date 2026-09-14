@@ -36,6 +36,27 @@ function createConcretePad(
   pad.parent = parent;
   pad.receiveShadows = true;
 
+  // Flat pad lip frame (raised edge, pad top stays flat for hook shadows)
+  const lipT = 0.28;
+  const lipH = 0.1;
+  const half = size / 2;
+  const lipY = 0.15 + lipH / 2;
+  for (const [suffix, w, d, ox, oz] of [
+    ["LipN", size + lipT * 2, lipT, 0, half + lipT / 2],
+    ["LipS", size + lipT * 2, lipT, 0, -(half + lipT / 2)],
+    ["LipE", lipT, size, half + lipT / 2, 0],
+    ["LipW", lipT, size, -(half + lipT / 2), 0],
+  ] as const) {
+    const lip = MeshBuilder.CreateBox(
+      `${name}_${suffix}`,
+      { width: w, height: lipH, depth: d },
+      scene
+    );
+    lip.position = new Vector3(x + ox, lipY, z + oz);
+    lip.material = mats.concrete;
+    lip.parent = parent;
+  }
+
   return {
     id: name,
     label: name,
@@ -376,7 +397,7 @@ function createPadMarker(
   bar.position.y = 0.16;
   const glyphMat = new StandardMaterial(`matGlyph${label}`, scene);
   glyphMat.diffuseColor = Color3.White();
-  glyphMat.emissiveColor = Color3.White().scale(0.3);
+  glyphMat.emissiveColor = Color3.White().scale(0.015);
   glyphMat.specularColor = Color3.Black();
   bar.material = glyphMat;
   bar.parent = node;
