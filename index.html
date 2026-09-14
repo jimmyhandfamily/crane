@@ -85,6 +85,7 @@
 
       #crane-pad {
         position: absolute; right: 12px; bottom: 16px;
+        z-index: 30;
         display: grid;
         grid-template-columns: repeat(3, 52px);
         grid-template-rows: repeat(3, 44px) auto;
@@ -121,14 +122,14 @@
       #crane-pad .btn-grab {
         grid-column: 1 / -1; grid-row: 3; min-height: 40px;
         flex-direction: row; gap: 6px;
-        background: rgba(74, 144, 200, 0.85); color: #fff;
+        background: rgba(82, 92, 102, 0.88); color: #fff;
       }
       #crane-pad .btn-grab .key { color: rgba(255, 255, 255, 0.85); }
       #crane-pad .btn-grab.holding {
         background: rgba(232, 184, 74, 0.92); color: #3a3018;
       }
       #crane-pad .btn-grab.holding .key { color: #5a4820; }
-      #crane-pad .btn-grab.active { background: rgba(74, 144, 200, 1); }
+      #crane-pad .btn-grab.active { background: rgba(82, 92, 102, 1); }
       #crane-pad .pad-label {
         grid-column: 1 / -1; grid-row: 4;
         font-size: 0.58rem; color: rgba(44, 58, 69, 0.5);
@@ -186,9 +187,10 @@
         #crane-pad {
           grid-template-columns: repeat(3, 46px);
           grid-template-rows: repeat(3, 40px) auto;
-          right: 8px; bottom: 80px;
+          right: 8px; bottom: 12px;
         }
-        #hud-hint { bottom: 240px; font-size: 0.6rem; max-width: 48vw; }
+        #hud-hint { bottom: 200px; font-size: 0.6rem; max-width: 48vw; }
+        #hud-load { bottom: 210px; }
       }
     </style>
   </head>

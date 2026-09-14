@@ -1,7 +1,7 @@
 import { Mesh, Object3D, Scene } from "three";
 import { CRANE_HEIGHT } from "../config/units";
 import type { SharedMaterials } from "../scene/materials";
-import { box, cyl, group, torus } from "../scene/meshHelpers";
+import { box, cyl, group, strut, torus } from "../scene/meshHelpers";
 
 /**
  * Procedural placeholder tower crane (~40 m) — Three.js.
@@ -22,8 +22,8 @@ export interface CraneParts {
   slewing: Object3D;
   turntable: Mesh;
   boomRoot: Object3D;
-  boom: Mesh;
-  jibTip: Mesh;
+  boom: Object3D;
+  jibTip: Object3D;
   trolley: Object3D;
   cable: Mesh;
   hook: Mesh;
@@ -115,32 +115,150 @@ export function createPlaceholderCrane(
     padLip.position.set(0, -0.05, outriggerLen * 0.48);
   }
 
-  const mastHeight = CRANE_HEIGHT - 4;
-  const sectionH = 4;
-  const sections = Math.floor(mastHeight / sectionH);
-  for (let i = 0; i < sections; i++) {
-    const section = box(
-      `MastSection_${i}`,
-      2.35,
-      sectionH * 0.92,
-      2.35,
-      i % 2 === 0 ? mats.craneYellow : mats.steel,
-      CraneRoot
-    );
-    section.position.set(0, 0.8 + i * sectionH + sectionH / 2, 0);
+  // --- Open square lattice mast (no solid MastSection boxes) ---
+  const mastBaseY = 0.8;
+  const bayH = 3.0;
+  // ~12 bays × 3 m ≈ CRANE_HEIGHT - 4 so Turntable/Cab/~40 m stay valid
+  const bayCount = Math.round((CRANE_HEIGHT - 4) / bayH);
+  const mastHeight = bayCount * bayH;
+  const mastTopY = mastBaseY + mastHeight;
+  const chordHalf = 1.1; // footprint 2.2×2.2, chords at ±1.1
+  const chordSize = 0.18;
+  const braceSize = 0.1;
+  const corners: [number, number][] = [
+    [-chordHalf, -chordHalf],
+    [chordHalf, -chordHalf],
+    [chordHalf, chordHalf],
+    [-chordHalf, chordHalf],
+  ];
 
-    const brace = box(
-      `MastBrace_${i}`,
-      2.55,
-      0.18,
-      0.18,
-      mats.steel,
-      CraneRoot
+  const Mast = group("Mast", CraneRoot);
+
+  for (let c = 0; c < corners.length; c++) {
+    const [cx, cz] = corners[c];
+    const chord = box(
+      `MastChord_${c}`,
+      chordSize,
+      mastHeight,
+      chordSize,
+      mats.craneYellow,
+      Mast
     );
-    brace.position.set(0, 0.8 + i * sectionH + sectionH * 0.92, 0);
+    chord.position.set(cx, mastBaseY + mastHeight / 2, cz);
   }
 
-  const mastTopY = 0.8 + sections * sectionH;
+  // Face edge pairs for rings / X-braces: +Z, -Z, +X, -X
+  const faces: { a: number; b: number; label: string }[] = [
+    { a: 3, b: 2, label: "PZ" }, // +Z
+    { a: 0, b: 1, label: "MZ" }, // -Z
+    { a: 1, b: 2, label: "PX" }, // +X
+    { a: 0, b: 3, label: "MX" }, // -X
+  ];
+
+  for (let i = 0; i < bayCount; i++) {
+    const y0 = mastBaseY + i * bayH;
+    const y1 = y0 + bayH;
+
+    // Horizontal ring at top of each bay (and base ring on first bay)
+    const ringYs = i === 0 ? [y0, y1] : [y1];
+    for (const ry of ringYs) {
+      for (const face of faces) {
+        const [ax, az] = corners[face.a];
+        const [bx, bz] = corners[face.b];
+        strut(
+          `MastRing_${i}_${face.label}_${ry === y0 ? "bot" : "top"}`,
+          ax,
+          ry,
+          az,
+          bx,
+          ry,
+          bz,
+          braceSize,
+          mats.steel,
+          Mast
+        );
+      }
+    }
+
+    // X-brace pair per face per bay
+    for (const face of faces) {
+      const [ax, az] = corners[face.a];
+      const [bx, bz] = corners[face.b];
+      strut(
+        `MastXBraceA_${i}_${face.label}`,
+        ax,
+        y0,
+        az,
+        bx,
+        y1,
+        bz,
+        braceSize,
+        mats.steel,
+        Mast
+      );
+      strut(
+        `MastXBraceB_${i}_${face.label}`,
+        bx,
+        y0,
+        bz,
+        ax,
+        y1,
+        az,
+        braceSize,
+        mats.steel,
+        Mast
+      );
+    }
+  }
+
+  // Ladder / walkway on +Z face
+  const ladderZ = chordHalf + 0.12;
+  const railHalf = 0.22;
+  const railSize = 0.06;
+  const MastLadder = group("MastLadder", Mast);
+
+  for (const side of [-1, 1] as const) {
+    const rail = box(
+      `MastLadderRail_${side > 0 ? "R" : "L"}`,
+      railSize,
+      mastHeight,
+      railSize,
+      mats.steel,
+      MastLadder
+    );
+    rail.position.set(side * railHalf, mastBaseY + mastHeight / 2, ladderZ);
+  }
+
+  const rungSpacing = 0.45;
+  const rungCount = Math.floor(mastHeight / rungSpacing);
+  for (let r = 0; r < rungCount; r++) {
+    const ry = mastBaseY + 0.2 + r * rungSpacing;
+    if (ry > mastTopY - 0.15) break;
+    const rung = box(
+      `MastLadderRung_${r}`,
+      railHalf * 2 + 0.04,
+      railSize,
+      railSize,
+      mats.steel,
+      MastLadder
+    );
+    rung.position.set(0, ry, ladderZ);
+  }
+
+  const CabWalkway = box(
+    "CabWalkway",
+    2.4,
+    0.08,
+    1.6,
+    mats.steel,
+    Mast
+  );
+  CabWalkway.position.set(0, mastTopY - 0.04, chordHalf + 0.85);
+
+  const walkRailL = box("CabWalkwayRail_L", 0.06, 0.55, 1.5, mats.steel, Mast);
+  walkRailL.position.set(-1.1, mastTopY + 0.25, chordHalf + 0.85);
+  const walkRailR = box("CabWalkwayRail_R", 0.06, 0.55, 1.5, mats.steel, Mast);
+  walkRailR.position.set(1.1, mastTopY + 0.25, chordHalf + 0.85);
 
   const Turntable = cyl("Turntable", 1.75, 1.75, 1.2, mats.steel, CraneRoot, 24);
   Turntable.position.set(0, mastTopY + 0.6, 0);
@@ -205,43 +323,208 @@ export function createPlaceholderCrane(
   BoomRoot.position.set(0, 2.4, 0);
 
   const boomLength = BOOM_LENGTH;
-  const Boom = box("Boom", 1.25, 1.25, boomLength, mats.craneYellow, BoomRoot);
+  // Hollow lattice boom (group, not solid box)
+  const Boom = group("Boom", BoomRoot);
   Boom.position.set(0, 0, boomLength / 2 + 1);
 
-  for (const [cx, cy] of [
-    [-0.62, 0.62],
-    [0.62, 0.62],
-    [-0.62, -0.62],
-    [0.62, -0.62],
-  ] as const) {
+  const boomHalf = 0.45; // 0.9×0.9 section
+  const boomChord = 0.12;
+  const boomBrace = 0.09;
+  const boomZ0 = -boomLength / 2;
+  const boomCorners: [number, number][] = [
+    [-boomHalf, -boomHalf],
+    [boomHalf, -boomHalf],
+    [boomHalf, boomHalf],
+    [-boomHalf, boomHalf],
+  ];
+
+  for (let c = 0; c < boomCorners.length; c++) {
+    const [cx, cy] = boomCorners[c];
     const chord = box(
-      `BoomChord_${cx}_${cy}`,
-      0.16,
-      0.16,
+      `BoomChord_${c}`,
+      boomChord,
+      boomChord,
       boomLength * 0.98,
-      mats.steel,
+      mats.craneYellow,
       Boom
     );
     chord.position.set(cx, cy, 0);
   }
 
-  const xFrames = 4;
+  const xFrames = 7;
+  const frameZs: number[] = [];
   for (let i = 0; i < xFrames; i++) {
-    const zLocal = -boomLength / 2 + 4 + i * ((boomLength - 6) / (xFrames - 1));
-    const x1 = box(`BoomXBraceA_${i}`, 0.11, 0.11, 1.55, mats.steel, Boom);
-    x1.position.set(0, 0, zLocal);
-    x1.rotation.z = Math.PI / 4;
+    const z =
+      boomZ0 + 1.5 + i * ((boomLength - 3) / Math.max(xFrames - 1, 1));
+    frameZs.push(z);
 
-    const x2 = box(`BoomXBraceB_${i}`, 0.11, 0.11, 1.55, mats.steel, Boom);
-    x2.position.set(0, 0, zLocal);
-    x2.rotation.z = -Math.PI / 4;
+    // Cross X in the bay plane (perpendicular to boom)
+    strut(
+      `BoomXBraceA_${i}`,
+      -boomHalf,
+      -boomHalf,
+      z,
+      boomHalf,
+      boomHalf,
+      z,
+      boomBrace,
+      mats.steel,
+      Boom
+    );
+    strut(
+      `BoomXBraceB_${i}`,
+      boomHalf,
+      -boomHalf,
+      z,
+      -boomHalf,
+      boomHalf,
+      z,
+      boomBrace,
+      mats.steel,
+      Boom
+    );
 
-    const post = box(`BoomBayPost_${i}`, 0.1, 1.15, 0.1, mats.steel, Boom);
-    post.position.set(0, 0, zLocal);
+    // Vertical + horizontal posts at frame
+    strut(
+      `BoomFrameV_L_${i}`,
+      -boomHalf,
+      -boomHalf,
+      z,
+      -boomHalf,
+      boomHalf,
+      z,
+      boomBrace,
+      mats.steel,
+      Boom
+    );
+    strut(
+      `BoomFrameV_R_${i}`,
+      boomHalf,
+      -boomHalf,
+      z,
+      boomHalf,
+      boomHalf,
+      z,
+      boomBrace,
+      mats.steel,
+      Boom
+    );
+    strut(
+      `BoomFrameH_T_${i}`,
+      -boomHalf,
+      boomHalf,
+      z,
+      boomHalf,
+      boomHalf,
+      z,
+      boomBrace,
+      mats.steel,
+      Boom
+    );
+    strut(
+      `BoomFrameH_B_${i}`,
+      -boomHalf,
+      -boomHalf,
+      z,
+      boomHalf,
+      -boomHalf,
+      z,
+      boomBrace,
+      mats.steel,
+      Boom
+    );
   }
 
-  const JibTip = box("JibTip", 1.35, 1.35, 1.35, mats.steel, BoomRoot);
+  // Side diagonals between consecutive frames (±X faces)
+  for (let i = 0; i < frameZs.length - 1; i++) {
+    const zA = frameZs[i];
+    const zB = frameZs[i + 1];
+    for (const sx of [-boomHalf, boomHalf] as const) {
+      const side = sx > 0 ? "R" : "L";
+      strut(
+        `BoomSideDiagA_${side}_${i}`,
+        sx,
+        -boomHalf,
+        zA,
+        sx,
+        boomHalf,
+        zB,
+        boomBrace,
+        mats.steel,
+        Boom
+      );
+      strut(
+        `BoomSideDiagB_${side}_${i}`,
+        sx,
+        boomHalf,
+        zA,
+        sx,
+        -boomHalf,
+        zB,
+        boomBrace,
+        mats.steel,
+        Boom
+      );
+    }
+    // Top/bottom longitudinal diagonals lightly
+    strut(
+      `BoomTopDiag_${i}`,
+      -boomHalf,
+      boomHalf,
+      zA,
+      boomHalf,
+      boomHalf,
+      zB,
+      boomBrace * 0.9,
+      mats.steel,
+      Boom
+    );
+  }
+
+  // JibTip — open 0.9 end frame (not solid cube)
+  const JibTip = group("JibTip", BoomRoot);
   JibTip.position.set(0, 0, boomLength + 1.5);
+  const tipHalf = 0.45;
+  const tipT = 0.1;
+  const tipEdges: [number, number, number, number, number, number, string][] = [
+    [-tipHalf, -tipHalf, 0, tipHalf, -tipHalf, 0, "B"],
+    [-tipHalf, tipHalf, 0, tipHalf, tipHalf, 0, "T"],
+    [-tipHalf, -tipHalf, 0, -tipHalf, tipHalf, 0, "L"],
+    [tipHalf, -tipHalf, 0, tipHalf, tipHalf, 0, "R"],
+  ];
+  for (const [ax, ay, az, bx, by, bz, lab] of tipEdges) {
+    strut(`JibTip_${lab}`, ax, ay, az, bx, by, bz, tipT, mats.steel, JibTip);
+  }
+  // Depth ring (open frame depth ~0.35)
+  const tipDepth = 0.35;
+  for (const [cx, cy] of boomCorners) {
+    strut(
+      `JibTipDepth_${cx}_${cy}`,
+      cx,
+      cy,
+      -tipDepth / 2,
+      cx,
+      cy,
+      tipDepth / 2,
+      tipT,
+      mats.steel,
+      JibTip
+    );
+  }
+  for (const [ax, ay, , bx, by, , lab] of tipEdges) {
+    strut(
+      `JibTipBack_${lab}`,
+      ax,
+      ay,
+      -tipDepth / 2,
+      bx,
+      by,
+      -tipDepth / 2,
+      tipT,
+      mats.steel,
+      JibTip
+    );
+  }
 
   const initialTrolleyZ = 22;
   const initialCableLength = 18;

@@ -5,8 +5,10 @@ import {
   Mesh,
   Object3D,
   PlaneGeometry,
+  Quaternion,
   SphereGeometry,
   TorusGeometry,
+  Vector3,
   type Material,
 } from "three";
 
@@ -123,3 +125,29 @@ export function group(name: string, parent?: Object3D): Object3D {
   return g;
 }
 
+const _strutDir = new Vector3();
+const _strutQuat = new Quaternion();
+const _strutZ = new Vector3(0, 0, 1);
+
+/** Box strut with local Z along A→B (thickness × thickness × length). */
+export function strut(
+  name: string,
+  ax: number,
+  ay: number,
+  az: number,
+  bx: number,
+  by: number,
+  bz: number,
+  thickness: number,
+  mat: Material,
+  parent?: Object3D
+): Mesh {
+  _strutDir.set(bx - ax, by - ay, bz - az);
+  const len = Math.max(_strutDir.length(), 1e-4);
+  const m = box(name, thickness, thickness, len, mat, parent);
+  m.position.set((ax + bx) * 0.5, (ay + by) * 0.5, (az + bz) * 0.5);
+  _strutDir.multiplyScalar(1 / len);
+  _strutQuat.setFromUnitVectors(_strutZ, _strutDir);
+  m.quaternion.copy(_strutQuat);
+  return m;
+}
