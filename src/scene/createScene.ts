@@ -1,12 +1,10 @@
 import {
-  Color,
   FogExp2,
   PerspectiveCamera,
   Scene,
   WebGLRenderer,
 } from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { Palette } from "../config/palette";
 import { createOrbitCamera } from "../camera/orbitCamera";
 import {
   createPlaceholderCrane,
@@ -21,6 +19,7 @@ import { createLights } from "./lights";
 import { createSharedMaterials } from "./materials";
 import { createProps } from "./props";
 import { createYardDressing, type YardDressing } from "./yardDressing";
+import { createSky } from "./sky";
 
 export interface CraneScene {
   scene: Scene;
@@ -39,8 +38,8 @@ export function createCraneScene(
   canvas: HTMLCanvasElement
 ): CraneScene {
   const scene = new Scene();
-  scene.background = new Color(Palette.sky);
-  scene.fog = new FogExp2(Palette.haze, 0.004);
+  scene.fog = new FogExp2(0xe8f4f8, 0.004);
+  createSky(scene);
 
   createLights(scene);
   const { camera, controls } = createOrbitCamera(canvas);

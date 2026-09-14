@@ -9,77 +9,68 @@
 |-------|--------|
 | Engine | **Three.js** + Vite + TypeScript |
 | `@babylonjs/*` | Removed |
-| `npm run build` | Must pass |
+| `npm run build` | **Passes** |
 
 Packages: `three@^0.186`, `@types/three`, `vite@^6.3.5`, `typescript@~5.8.3`
 
-## Structure pass (this session)
+## Improvements 1–5 (this session)
 
-- **Mast:** solid `MastSection_*` boxes removed → open 2.2×2.2 m square lattice (chords at ±1.1), 4 yellow `#E5B03A` corner chords 0.18×0.18 × full height, ~12×3.0 m bays, per-face X-braces + horizontal rings 0.10 steel `#525C66`. `mastTopY` kept so Turntable/Cab/~40 m heights still work. Names: `CraneRoot`, required nodes intact.
-- **Ladder / walkway (+Z):** rails 0.06×0.06, rungs every 0.45 m (`MastLadder`, `MastLadderRung_*`), `CabWalkway` landing under cab.
-- **Boom:** hollow group (not solid box); chords 0.12 at ±0.45 (0.9×0.9); 7 X-frames + side diagonals; `JibTip` open 0.9 end frame (not solid cube).
-- **UI:** removed stray blue grab-bar look overlapping the pad (steel-neutral Grab); pad `z-index: 30`; mobile pad flush to bottom (no sky-blue body strip).
-- **Hook blob shadow:** Y sits on highest surface under hook (ground / pad top / unattached load top) so the disc lands on crate tops and pads for clear aim — not always flat ground.
+### 1. localStorage persist
+- Key `crane.career.v1`: day rate, jobsCompleted, title, lesson1/2 flags, padA/padB placed.
+- Restored on load; HUD title, pay tease, and objective sync from career state.
+- Rank stays **Apprentice**.
+
+### 2. Lesson 2
+- Lesson 1: place a crate on **Pad A** → pay bump + title → “Training Yard — Lesson 2”.
+- Lesson 2 objective: place crates on **both Pad A and Pad B** (✓/○ tracked each).
+- When both pads done → Lesson 2 complete, title “Training Yard — Graduated”, second pay bump.
+- Lattice crane / grab highlight / mixer / wind unchanged.
+
+### 3. Swing warning
+- `getSwayAngle()` on physics; threshold `SWAY_WARN_ANGLE` ≈ 3.2°.
+- When loaded and sway above threshold: load meter `data-band="swing"`, label **“Swing high”** (orange).
+- Clears when settled or hook empty.
+
+### 4. Soft magnet snap
+- Free load in attach range and nearly aligned (`SOFT_MAGNET_ALIGN_FRAC` of horiz max):
+  gentle world-XZ nudge via `physics.applySoftMagnet` (capped ~3.5 cm/frame).
+- Subtle assist — not sticky teleport; grab highlight still drives aim UX.
+
+### 5. Sky
+- `scene/sky.ts`: canvas vertical gradient background + 3 soft cloud planes.
+- Friendly cartoon-real look; fog haze preserved.
+
+## Structure pass (prior)
+
+- **Mast:** open 2.2×2.2 m square lattice; yellow chords; X-braces; `mastTopY` unchanged.
+- **Ladder / walkway (+Z):** rails, rungs, `CabWalkway`.
+- **Boom:** hollow lattice; `JibTip` open end frame.
+- **UI:** steel-neutral Grab; pad `z-index: 30`.
+- **Hook blob shadow:** surface-aware Y (ground / pad / crate top).
 
 ## Grab aim highlight
 
-- When hook is within existing attach thresholds (`ATTACH_DISTANCE` 1.25 m, `ATTACH_HORIZONTAL_MAX` 1.1 m), the nearest free load gets emissive tint + slight edge outline.
-- Cleared when leaving range or after grab (attached).
-
-## Career / pay stub beat
-
-- On win (crate on Pad A or B): `recordJobComplete` bumps session day rate ($0 → $240 first win, else +$120); HUD pay updates; objective → “Lesson 1 complete…”.
-- Rank stays **Apprentice**. Session-only module state (no persistence).
+- Within `ATTACH_DISTANCE` 1.25 m / `ATTACH_HORIZONTAL_MAX` 1.1 m: emissive + outline.
+- Cleared when leaving range or after grab.
 
 ## Ambient concrete mixer
 
-- `AmbientMixer1`: cab + tilted fat drum (~15°), overall ~9×2.6×3.5. Same gravel `EDGE_PATH` as other trucks, staggered `startWait: 33`.
+- `AmbientMixer1` on gravel path, `startWait: 33`.
 
 ## Gentle wind
 
-- Each frame: `crane.physics.setWind(dir, strength * HOOK_EMPTY_MASS_KG)`.
-- Strength varies **0.15–0.35** (accel-equivalent on empty hook); direction drifts slowly (`~0.06 rad/s`).
-- Empty hook gets subtle ongoing sway; still much milder than old exaggerated physics. Loaded hook feels even milder (`force / totalMass`).
+- Strength 0.15–0.35 (empty-hook accel); direction drifts ~0.06 rad/s.
 
-## Physics (milder than Babylon M3 — Jimmy feedback)
+## Physics (mild)
 
-Real crane cable feel, not playground swing:
-
-| Constant | Value | Role |
-|----------|-------|------|
-| `SWAY_DAMPING_ZETA` | **0.48** | Faster settle |
-| `SWAY_ACCEL_GAIN` | **0.30** | Mild coupling |
-| `SWAY_LOAD_GAIN` | **0.12** | Modest loaded extra sway |
-| `SWAY_LOAD_DAMP_SOFTEN` | **0.25** | Slight settle lengthening |
-| `SWAY_MAX_ANGLE` | **7°** | Clamp |
-| `BOOM_FLEX_GAIN` | **0.00012** | Nearly invisible |
-| `BOOM_FLEX_MAX` | **0.004** rad (~0.23°) | Clamp |
-| `HOIST_LOADED_SPEED_FACTOR` | **0.72** | Unchanged |
-
-## HUD (Jimmy feedback)
-
-- Objective moved **top-left under rank** — not center of view
-- Panels smaller / lower opacity; work area clear
-- Control pad stays bottom-right; load meter slim top-center
-- Grab button steel-neutral (no blue rectangle over pad)
-
-## Port notes
-
-- Scene graph: `Object3D` / `Mesh` instead of Babylon TransformNode/Mesh
-- Camera: `OrbitControls` (polar ≈ ArcRotate beta), pan disabled, zoom clamps
-- Materials: `MeshStandardMaterial` (soft cartoon-real)
-- Fog: `FogExp2`; lights: Hemisphere + Ambient + Directional
-- Blob shadows: canvas radial texture on discs (no shadow maps); surface-aware Y
-- Same folder layout as Babylon M3; git history kept
-
-## Babylon features dropped / changed
-
-- `@babylonjs/core` Engine / Scene / ArcRotateCamera / StandardMaterial / MeshBuilder
-- Babylon shadow-generator never used (blob discs kept)
-- PhysX never used (kinematic spring kept)
-- `DynamicTexture` → canvas `CanvasTexture`
-- Mesh `parent` setter → `add` / `remove` + reparent to props root
-- Career: session pay tease on Lesson 1 win (still stub rank)
+| Constant | Value |
+|----------|-------|
+| `SWAY_DAMPING_ZETA` | 0.48 |
+| `SWAY_ACCEL_GAIN` | 0.30 |
+| `SWAY_LOAD_GAIN` | 0.12 |
+| `SWAY_MAX_ANGLE` | 7° |
+| `SWAY_WARN_ANGLE` | ~3.2° |
+| `SOFT_MAGNET_MAX_NUDGE` | 0.035 m |
 
 ## Verify
 

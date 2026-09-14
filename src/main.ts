@@ -1,12 +1,13 @@
 import { WebGLRenderer, Clock, SRGBColorSpace, Vector3 } from "three";
 import { createCraneScene } from "./scene/createScene";
-import { initHud, setLoadMeter, setPayTease } from "./ui/hud";
+import { initHud, setLoadMeter, setPayTease, setTitle } from "./ui/hud";
 import { getCareerState } from "./career/careerStub";
 import {
   initCraneControls,
   getCraneInput,
   consumeGrabPress,
   HOOK_EMPTY_MASS_KG,
+  SWAY_WARN_ANGLE,
 } from "./crane";
 import { ATTACH_DISTANCE } from "./loads";
 
@@ -22,12 +23,17 @@ function syncGrabButton(attached: boolean): void {
 }
 
 function syncLoadMass(
-  crane: { setAttachedLoadMass(kg: number): void },
+  crane: {
+    setAttachedLoadMass(kg: number): void;
+    physics: { getSwayAngle(): number; getLoadMass(): number };
+  },
   loads: { attached: { massKg: number } | null }
 ): void {
   const kg = loads.attached?.massKg ?? 0;
   crane.setAttachedLoadMass(kg);
-  setLoadMeter(kg);
+  const swingHigh =
+    kg > 0 && crane.physics.getSwayAngle() > SWAY_WARN_ANGLE;
+  setLoadMeter(kg, swingHigh);
 }
 
 function boot(): void {
@@ -37,14 +43,26 @@ function boot(): void {
   }
 
   const career = getCareerState();
+  const objective = career.lesson2Complete
+    ? "Lessons complete — keep practicing grab & place."
+    : career.lesson1Complete
+      ? `Lesson 2: place crates on Pad A ${career.padAPlaced ? "✓" : "○"} and Pad B ${career.padBPlaced ? "✓" : "○"} (both required).`
+      : "Pick up a crate and place it on Pad A";
+
   initHud({
-    title: "Training Yard",
+    title: career.title,
     role: career.rank,
-    objective: "Pick up a crate and place it on Pad A",
+    objective,
     showPayTease: true,
   });
 
-  setPayTease(career.dayRate, "Pay unlocks later — stub");
+  const payStub = career.lesson2Complete
+    ? "Lesson 2 complete — both pads"
+    : career.lesson1Complete
+      ? "Lesson 1 complete — session pay"
+      : "Pay unlocks later — stub";
+  setPayTease(career.dayRate, payStub);
+  setTitle(career.title);
 
   const hintEl = document.getElementById("hud-hint");
   if (hintEl) {
@@ -102,7 +120,13 @@ function boot(): void {
       syncGrabButton(loads.attached !== null);
       syncLoadMass(crane, loads);
     }
-    loads.update(crane.parts);
+    loads.update(crane.parts, crane.physics);
+    // Swing warning each frame while loaded
+    const kg = loads.attached?.massKg ?? 0;
+    const swingHigh =
+      kg > 0 && crane.physics.getSwayAngle() > SWAY_WARN_ANGLE;
+    setLoadMeter(kg, swingHigh);
+
     blobShadows.update(crane.parts, loads);
     ambientTraffic.update(dt);
     yardDressing.update(dt);
@@ -120,7 +144,7 @@ function boot(): void {
   });
 
   console.info(
-    `[Crane] Three.js grab/place ready — attach≤${ATTACH_DISTANCE}m, mild sway + aim highlight + gentle wind, ambient mixer, rank=${career.rank}`
+    `[Crane] Three.js ready — attach≤${ATTACH_DISTANCE}m, persist+L2+swing+magnet+sky, rank=${career.rank}, L1=${career.lesson1Complete}, L2=${career.lesson2Complete}`
   );
 }
 

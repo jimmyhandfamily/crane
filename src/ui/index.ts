@@ -1,1 +1,7 @@
-export { initHud, setObjective, setPayTease, setLoadMeter } from "./hud";
+export {
+  initHud,
+  setTitle,
+  setObjective,
+  setPayTease,
+  setLoadMeter,
+} from "./hud";

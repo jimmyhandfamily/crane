@@ -38,6 +38,14 @@ export const SWAY_LOAD_DAMP_SOFTEN = 0.25;
 /** Max pendulum angle from vertical (radians) ≈ 7°. */
 export const SWAY_MAX_ANGLE = (7 * Math.PI) / 180;
 
+/** HUD swing-high warning when loaded and angle above this (radians) ≈ 3.2°. */
+export const SWAY_WARN_ANGLE = (3.2 * Math.PI) / 180;
+
+/** Soft magnet: max horizontal nudge per frame (m) when nearly aligned. */
+export const SOFT_MAGNET_MAX_NUDGE = 0.035;
+/** Soft magnet: only when horiz dist below this fraction of ATTACH_HORIZONTAL_MAX. */
+export const SOFT_MAGNET_ALIGN_FRAC = 0.85;
+
 /** Boom tip flex spring (rad/s² per rad). */
 export const BOOM_FLEX_STIFFNESS = 40;
 /** Boom tip flex damping (1/s). */
@@ -56,6 +64,13 @@ export interface CranePhysics {
   setLoadMass(kg: number): void;
   getLoadMass(): number;
   getTotalMass(): number;
+  /** Current pendulum angle from vertical (radians). */
+  getSwayAngle(): number;
+  /**
+   * Soft magnet: gently pull world sway offset toward reducing horizontal
+   * error (dxWorld, dzWorld = loadTop - hook). Subtle, not a teleport.
+   */
+  applySoftMagnet(dxWorld: number, dzWorld: number, strength: number): void;
   update(dt: number, parts: CraneParts, cableLength: number): void;
   reset(): void;
 }
@@ -106,6 +121,8 @@ export function createCranePhysics(): CranePhysics {
   let boomRestX = 0;
   let boomRestZ = 0;
   let boomRestCaptured = false;
+  let lastCableLength = 8;
+  let lastParts: CraneParts | null = null;
 
   const api: CranePhysics = {
     windForce,
@@ -126,6 +143,27 @@ export function createCranePhysics(): CranePhysics {
     getTotalMass(): number {
       return HOOK_EMPTY_MASS_KG + loadMassKg;
     },
+    getSwayAngle(): number {
+      const L = Math.max(lastCableLength, 1.5);
+      const r = Math.hypot(ox, oz);
+      return Math.atan2(r, L);
+    },
+    applySoftMagnet(dxWorld: number, dzWorld: number, strength: number): void {
+      // Pull offset toward the target: reducing (load - hook) means adding
+      // a fraction of that delta into the pendulum offset (world XZ).
+      const s = clamp(strength, 0, 1);
+      const nx = clamp(dxWorld * s, -SOFT_MAGNET_MAX_NUDGE, SOFT_MAGNET_MAX_NUDGE);
+      const nz = clamp(dzWorld * s, -SOFT_MAGNET_MAX_NUDGE, SOFT_MAGNET_MAX_NUDGE);
+      if (Math.abs(nx) < 1e-6 && Math.abs(nz) < 1e-6) return;
+      ox += nx;
+      oz += nz;
+      // Softly bleed radial velocity so the nudge doesn't ring
+      vx *= 0.97;
+      vz *= 0.97;
+      if (lastParts) {
+        applyVisuals(lastParts, lastCableLength, ox, oz);
+      }
+    },
     reset(): void {
       ox = oz = vx = vz = 0;
       primed = false;
@@ -133,6 +171,7 @@ export function createCranePhysics(): CranePhysics {
     },
     update(dt: number, parts: CraneParts, cableLength: number): void {
       if (dt > 0.1) primed = false;
+      lastParts = parts;
 
       parts.trolley.updateWorldMatrix(true, false);
       parts.trolley.getWorldPosition(_attach);
@@ -149,6 +188,7 @@ export function createCranePhysics(): CranePhysics {
         prevSupportVx = 0;
         prevSupportVz = 0;
         primed = true;
+        lastCableLength = Math.max(cableLength, 1.5);
         applyVisuals(parts, cableLength, ox, oz);
         applyBoomFlex(parts, 0, 0);
         return;
@@ -162,6 +202,7 @@ export function createCranePhysics(): CranePhysics {
       supportAz = clamp(supportAz, -40, 40);
 
       const L = Math.max(cableLength, 1.5);
+      lastCableLength = L;
       const m = HOOK_EMPTY_MASS_KG + loadMassKg;
       const loadT = clamp(loadMassKg / LOAD_HEAVY_REF_KG, 0, 1.4);
 

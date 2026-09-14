@@ -4,6 +4,7 @@
  *
  * Objective sits under the rank card (top-left) — slim, low opacity.
  * Load meter: visual only. Sound cue — future only.
+ * Swing warning: when loaded + high sway, meter shows warning band/text.
  */
 
 import {
@@ -42,7 +43,12 @@ export function initHud(options: HudOptions = {}): void {
     payEl.style.display = opts.showPayTease ? "" : "none";
   }
 
-  setLoadMeter(0);
+  setLoadMeter(0, false);
+}
+
+export function setTitle(text: string): void {
+  const el = document.querySelector("#hud-title h1");
+  if (el) el.textContent = text;
 }
 
 export function setObjective(text: string): void {
@@ -60,7 +66,11 @@ export function setPayTease(dayRate: number, stub?: string): void {
   payEl.style.display = "";
 }
 
-export function setLoadMeter(loadMassKg: number): void {
+/**
+ * Update load meter. When swingHigh is true (loaded + sway over threshold),
+ * show warning color/text; cleared when settled or empty.
+ */
+export function setLoadMeter(loadMassKg: number, swingHigh = false): void {
   const root = document.getElementById("hud-load");
   if (!root) return;
 
@@ -74,11 +84,16 @@ export function setLoadMeter(loadMassKg: number): void {
       ? 0
       : Math.min(100, Math.round((loadMassKg / LOAD_HEAVY_REF_KG) * 100));
 
-  root.dataset.band = band;
+  const warn = swingHigh && loadMassKg > 0;
+  root.dataset.band = warn ? "swing" : band;
   if (fill) fill.style.width = `${pct}%`;
   if (label) {
-    label.textContent =
-      band === "empty" ? "Empty" : band === "light" ? "Light" : "Heavy";
+    if (warn) {
+      label.textContent = "Swing high";
+    } else {
+      label.textContent =
+        band === "empty" ? "Empty" : band === "light" ? "Light" : "Heavy";
+    }
   }
   if (value) {
     value.textContent =

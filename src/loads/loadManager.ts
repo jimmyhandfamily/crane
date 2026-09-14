@@ -8,9 +8,17 @@ import {
   type Object3D,
 } from "three";
 import type { CraneParts } from "../crane/placeholderCrane";
+import {
+  SOFT_MAGNET_ALIGN_FRAC,
+  type CranePhysics,
+} from "../crane/cranePhysics";
 import type { LoadItem, PadZone } from "./types";
-import { setObjective, setPayTease } from "../ui/hud";
-import { getCareerState, recordJobComplete } from "../career/careerStub";
+import { setObjective, setPayTease, setTitle } from "../ui/hud";
+import {
+  getCareerState,
+  recordJobComplete,
+  recordPadCratePlaced,
+} from "../career/careerStub";
 
 export const ATTACH_DISTANCE = 1.25;
 export const ATTACH_HORIZONTAL_MAX = 1.1;
@@ -22,9 +30,13 @@ export interface LoadManager {
   attached: LoadItem | null;
   aimTarget: LoadItem | null;
   placedCount: number;
-  m2Complete: boolean;
+  lesson1Complete: boolean;
+  lesson2Complete: boolean;
+  padADone: boolean;
+  padBDone: boolean;
   tryToggleGrab(parts: CraneParts): void;
-  update(parts: CraneParts): void;
+  /** Optional physics for soft-magnet nudge while aiming. */
+  update(parts: CraneParts, physics?: CranePhysics): void;
 }
 
 const _hook = new Vector3();
@@ -158,33 +170,90 @@ function attachLoad(load: LoadItem, parts: CraneParts): void {
   load.attached = true;
 }
 
+function syncFromCareer(mgr: LoadManager): void {
+  const c = getCareerState();
+  mgr.lesson1Complete = c.lesson1Complete;
+  mgr.lesson2Complete = c.lesson2Complete;
+  mgr.padADone = c.padAPlaced;
+  mgr.padBDone = c.padBPlaced;
+}
+
 function updateObjective(mgr: LoadManager): void {
-  if (mgr.m2Complete) {
-    setObjective("Lesson 1 complete — keep practicing grab & place.");
+  if (mgr.lesson2Complete) {
+    setObjective("Lessons complete — keep practicing grab & place.");
     return;
   }
+
+  if (mgr.lesson1Complete) {
+    // Lesson 2: both Pad A and Pad B
+    const a = mgr.padADone ? "✓" : "○";
+    const b = mgr.padBDone ? "✓" : "○";
+    if (mgr.attached) {
+      const kind = mgr.attached.kind === "crate" ? "crate" : "barrel";
+      setObjective(
+        `Lesson 2: carrying ${kind}. Place crates on Pad A ${a} and Pad B ${b}.`
+      );
+      return;
+    }
+    setObjective(
+      `Lesson 2: place crates on Pad A ${a} and Pad B ${b} (both required).`
+    );
+    return;
+  }
+
+  // Lesson 1
   if (mgr.attached) {
     const kind = mgr.attached.kind === "crate" ? "crate" : "barrel";
     setObjective(
-      `Carrying a ${kind}. Release over Pad A (or any pad) with Space / Grab.`
+      `Carrying a ${kind}. Release over Pad A with Space / Grab.`
     );
     return;
   }
   if (mgr.placedCount > 0) {
-    setObjective(
-      "Load placed. Pick up another crate and set it on Pad A to finish."
-    );
+    setObjective("Load placed. Pick up a crate and set it on Pad A to finish.");
     return;
   }
   setObjective("Pick up a crate and place it on Pad A");
 }
 
-function onLessonWin(mgr: LoadManager): void {
-  if (mgr.m2Complete) return;
-  mgr.m2Complete = true;
+function onLesson1Win(mgr: LoadManager): void {
+  if (mgr.lesson1Complete) return;
+  mgr.lesson1Complete = true;
   recordJobComplete("training-yard-lesson-1");
   const career = getCareerState();
   setPayTease(career.dayRate, "Lesson 1 complete — session pay");
+  setTitle(career.title);
+  updateObjective(mgr);
+}
+
+function onLesson2Win(mgr: LoadManager): void {
+  if (mgr.lesson2Complete) return;
+  if (!(mgr.padADone && mgr.padBDone)) return;
+  mgr.lesson2Complete = true;
+  recordJobComplete("training-yard-lesson-2");
+  const career = getCareerState();
+  setPayTease(career.dayRate, "Lesson 2 complete — both pads");
+  setTitle(career.title);
+  updateObjective(mgr);
+}
+
+function applySoftMagnetNudge(
+  parts: CraneParts,
+  load: LoadItem,
+  physics: CranePhysics
+): void {
+  const hook = hookWorldPos(parts);
+  const top = loadTopWorld(load);
+  const horiz = horizontalDist(hook, top);
+  const alignMax = ATTACH_HORIZONTAL_MAX * SOFT_MAGNET_ALIGN_FRAC;
+  if (horiz < 0.04 || horiz > alignMax) return;
+
+  // Stronger as we get closer (nearly aligned), still capped in physics
+  const t = 1 - horiz / alignMax;
+  const strength = 0.04 + 0.1 * t * t;
+  const dx = top.x - hook.x;
+  const dz = top.z - hook.z;
+  physics.applySoftMagnet(dx, dz, strength);
 }
 
 export function createLoadManager(
@@ -203,7 +272,10 @@ export function createLoadManager(
     attached: null,
     aimTarget: null,
     placedCount: 0,
-    m2Complete: false,
+    lesson1Complete: false,
+    lesson2Complete: false,
+    padADone: false,
+    padBDone: false,
     tryToggleGrab(parts: CraneParts): void {
       if (mgr.attached) {
         const load = mgr.attached;
@@ -222,11 +294,24 @@ export function createLoadManager(
           load.placed = true;
           mgr.placedCount += 1;
           load.mesh.position.y = load.halfHeight + 0.15;
-          if (load.kind === "crate" && pad.marked) {
-            onLessonWin(mgr);
+
+          if (load.kind === "crate") {
+            if (pad.label === "Pad A" || pad.label === "Pad B") {
+              recordPadCratePlaced(pad.label);
+              if (pad.label === "Pad A") mgr.padADone = true;
+              if (pad.label === "Pad B") mgr.padBDone = true;
+            }
+
+            if (!mgr.lesson1Complete && pad.label === "Pad A") {
+              onLesson1Win(mgr);
+            }
+            if (mgr.lesson1Complete && !mgr.lesson2Complete) {
+              onLesson2Win(mgr);
+            }
           }
+
           console.info(
-            `[Crane] Placed ${load.id} on ${pad.label} (placed=${mgr.placedCount}, win=${mgr.m2Complete})`
+            `[Crane] Placed ${load.id} on ${pad.label} (placed=${mgr.placedCount}, L1=${mgr.lesson1Complete}, L2=${mgr.lesson2Complete}, A=${mgr.padADone}, B=${mgr.padBDone})`
           );
         } else {
           console.info(`[Crane] Released ${load.id} (not on a pad)`);
@@ -246,7 +331,7 @@ export function createLoadManager(
       console.info(`[Crane] Attached ${target.id}`);
       updateObjective(mgr);
     },
-    update(parts: CraneParts): void {
+    update(parts: CraneParts, physics?: CranePhysics): void {
       if (mgr.attached) {
         const load = mgr.attached;
         load.mesh.position.set(0, -0.55 - load.halfHeight, 0);
@@ -260,9 +345,24 @@ export function createLoadManager(
         mgr.aimTarget = nearest;
         if (nearest) setLoadHighlight(nearest, true);
       }
+
+      // Soft magnet: nudge sway toward load center when nearly aligned
+      if (nearest && physics) {
+        applySoftMagnetNudge(parts, nearest, physics);
+        // Re-apply visuals so nudge is visible this frame
+        // (physics.update already ran; soft magnet mutates ox/oz for next frame
+        // and we re-run a tiny visual sync via applying magnet before next update —
+        // call applySoftMagnet then rely on next frame. For same-frame feel,
+        // nudge is small enough that next-frame is fine.)
+      }
     },
   };
 
+  syncFromCareer(mgr);
+  // Persist may already have both pads from a prior session mid-L2
+  if (mgr.lesson1Complete && !mgr.lesson2Complete && mgr.padADone && mgr.padBDone) {
+    onLesson2Win(mgr);
+  }
   updateObjective(mgr);
   return mgr;
 }
