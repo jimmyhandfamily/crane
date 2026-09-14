@@ -1,4 +1,4 @@
-# Crane M2 — Status
+# Crane M3 — Status
 
 **Date:** 2026-09-14  
 **Path:** `/workspace/crane` (local Vite free path — no Cursor cloud agent)
@@ -13,74 +13,53 @@
 
 Packages: `@babylonjs/core@^9.26.1`, `vite@^6.3.5`, `typescript@~5.8.3`
 
-## Milestone 2 — Pick up & place loads
+## Milestone 3 — Visual upgrade (Software Graphics P1–P3)
 
-Kinematic attach (no physics engine). Builds on M1 slew / trolley / hoist.
+Still Dredge-warmer / friendly; readable from high ~60° camera. Required node names unchanged. Gameplay (controls, grab/place, blob shadows) intact.
 
-### Gameplay
+### Priority 1 — Crane detail
 
-- **Pickable loads:** Crate1–4 + Barrel1 in the training yard.
-- **Grab:** when the hook ring is within **~1.25 m** of a free load’s top and roughly above it (horizontal ≤ **1.1 m**), press **Space** or the on-screen **Grab** button to attach.
-- **Carry:** load is parented under `Hook` and follows slew / trolley / hoist.
-- **Release:** Space / Grab again detaches. If the load is over/near a concrete pad (Pad A/B or Pad 3, with **0.75 m** margin), it counts as placed.
-- **M2 win:** place at least **one crate** onto a **marked** pad (Pad A or Pad B). HUD objective updates through the flow.
+- **Boom:** thicker outer silhouette + chord rails; **4 X-frame** cross-brace child boxes under `Boom`
+- **Cab:** roof overhang box; `CabGlass` inset + darker tint (`glassDark`); side glass hints
+- **Cable:** thicker primary cylinder + dual parallel strand children (scale with hoist)
+- **Hook:** yellow block + steel cheek plates + sheave (children of `Hook`)
+- **Palette:** crane yellow `#E5B03A`, steel `#525C66`
 
-### Controls (M1 + M2)
+### Priority 2 — Outriggers + tracks
 
-| Action | Keys | Pad button |
-|--------|------|------------|
-| Slew left / right | **A** / **D** | Left / Right |
-| Trolley in / out | **S** / **W** | In / Out |
-| Lower / raise Hook | **F** / **R** | Lower / Raise |
-| Grab / Release load | **Space** | **Grab** / **Release** |
+- **OutriggerN/E/S/W:** TransformNodes with beam, outer sleeve, pad + lip children
+- **Tracks:** thicker base + left/right shoes + thin **grouser ridge** boxes
+- **Counterweight:** stacked plate children; **Turntable** thin yellow/steel collar ring
 
-- Hold to move (keyboard + pointer hold on pad).
-- Mouse orbit + scroll zoom unchanged.
-- Grab is edge-triggered (does not steal camera left-drag).
+### Priority 3 — Shed + fence
 
-### Attach parameters
+- **Shed:** door recess + panel, window quads, stronger roof overhang + ridge, porch slab, HVAC box
+- **Fence:** chunky post+rail along yard edge (`YardFence`), gate gaps on axes
 
-| Parameter | Value |
-|-----------|-------|
-| `ATTACH_DISTANCE` | **1.25 m** (hook ring → load top) |
-| `ATTACH_HORIZONTAL_MAX` | **1.1 m** |
-| `PAD_PLACE_MARGIN` | **0.75 m** beyond pad half-extent |
+Skipped this pass: prop density, ground berms, backdrop buildings.
 
-### Files added / touched
+### Files touched
 
-- `src/loads/types.ts`, `src/loads/loadManager.ts`, `src/loads/index.ts` — load/pad model + grab/place
-- `src/scene/props.ts` — returns pickable `loads` + `pads` (Pad A/B marked)
-- `src/crane/controls.ts` — Space + `#btn-grab` edge trigger
-- `src/scene/createScene.ts`, `src/main.ts`, `src/crane/index.ts`
-- `index.html` — Grab/Release button + HUD copy
-- `src/scene/blobShadows.ts` — soft ground blobs under hook + attached load
+- `src/config/palette.ts` — M3 yellow/steel + shed/fence/glassDark hexes
+- `src/scene/materials.ts` — `glassDark`, `shedDoor`, `shedWindow`, `fence`
+- `src/crane/placeholderCrane.ts` — P1/P2 mesh detail (required names kept)
+- `src/scene/props.ts` — shed upgrade + yard fence
 - `STATUS.md`
 
-### Still intact from M1 / M0
+## Still intact from M2 / M1 / M0
 
-- Required crane mesh names
-- Graphics palette / soft yard look
-- Camera orbit + zoom; A/D W/S R/F + hold pad
-- Career stub HUD
-
-
-## Ground position feedback (blob shadows)
-
-Soft dark disc blobs on the ground (y≈0.18) for playability — **no** Babylon shadow generator (keeps the friendly M0 look).
-
-- **HookGroundShadow** — always follows hook XZ; diameter ~1.35 m, scales slightly with height
-- **LoadGroundShadow** — enabled while a load is attached; sized from load radius (~1.5 m+)
-- Soft radial alpha texture so the cue stays readable from the high ~60° camera over dirt/pads
-- Vertical guide / height readout skipped to avoid clutter
-
-Files: `src/scene/blobShadows.ts`; wired in `createScene.ts` + `main.ts` render loop.
+- Required crane mesh/node names
+- A/D slew · W/S trolley · R/F hoist · Space grab/release
+- Load manager attach/place; Pad A/B win condition
+- Blob shadows (`HookGroundShadow` / `LoadGroundShadow`)
+- Camera orbit + zoom; career stub HUD
 
 ## Caveats
 
 - Still procedural boxes/cylinders — no GLB, no full physics
-- Cable is a scaled cylinder (visual only)
+- Cable strands are children of scaled `Cable` (visual only)
 - Placed loads stay put (no stacking physics)
-- Git push intentionally out of scope (parent handles git)
+- Git push intentionally out of scope
 
 ## Verify
 

@@ -7,6 +7,7 @@ import {
   StandardMaterial,
   Mesh,
 } from "@babylonjs/core";
+import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
 import type { LoadItem, PadZone } from "../loads/types";
 
@@ -64,25 +65,200 @@ function createShed(
   wall.material = mats.shedWall;
   wall.parent = shed;
 
-  const roofL = MeshBuilder.CreateBox(
-    "ShedRoofL",
-    { width: 6.4, height: 0.2, depth: 2.6 },
+  // Door recess (front +Z)
+  const doorRecess = MeshBuilder.CreateBox(
+    "ShedDoorRecess",
+    { width: 1.5, height: 2.2, depth: 0.25 },
     scene
   );
-  roofL.position = new Vector3(0, 3.5, -0.7);
+  doorRecess.position = new Vector3(0, 1.1, 2.2);
+  doorRecess.material = mats.shedDoor;
+  doorRecess.parent = shed;
+
+  const doorPanel = MeshBuilder.CreateBox(
+    "ShedDoorPanel",
+    { width: 1.25, height: 2.0, depth: 0.08 },
+    scene
+  );
+  doorPanel.position = new Vector3(0, 1.05, 2.28);
+  doorPanel.material = mats.shedDoor;
+  doorPanel.parent = shed;
+
+  // Window quads (side walls)
+  for (const [wx, wz] of [
+    [-3.05, 0.4],
+    [-3.05, -0.9],
+    [3.05, 0.4],
+    [3.05, -0.9],
+  ] as const) {
+    const frame = MeshBuilder.CreateBox(
+      `ShedWinFrame_${wx}_${wz}`,
+      { width: 0.12, height: 1.15, depth: 1.25 },
+      scene
+    );
+    frame.position = new Vector3(wx, 1.85, wz);
+    frame.material = mats.shedRoof;
+    frame.parent = shed;
+
+    const glass = MeshBuilder.CreateBox(
+      `ShedWinGlass_${wx}_${wz}`,
+      { width: 0.06, height: 0.95, depth: 1.05 },
+      scene
+    );
+    glass.position = new Vector3(wx + Math.sign(wx) * 0.02, 1.85, wz);
+    glass.material = mats.shedWindow;
+    glass.parent = shed;
+  }
+
+  // Roof with stronger overhang
+  const roofL = MeshBuilder.CreateBox(
+    "ShedRoofL",
+    { width: 7.0, height: 0.22, depth: 2.9 },
+    scene
+  );
+  roofL.position = new Vector3(0, 3.55, -0.75);
   roofL.rotation.x = 0.35;
   roofL.material = mats.shedRoof;
   roofL.parent = shed;
 
   const roofR = MeshBuilder.CreateBox(
     "ShedRoofR",
-    { width: 6.4, height: 0.2, depth: 2.6 },
+    { width: 7.0, height: 0.22, depth: 2.9 },
     scene
   );
-  roofR.position = new Vector3(0, 3.5, 0.7);
+  roofR.position = new Vector3(0, 3.55, 0.75);
   roofR.rotation.x = -0.35;
   roofR.material = mats.shedRoof;
   roofR.parent = shed;
+
+  // Ridge cap
+  const ridge = MeshBuilder.CreateBox(
+    "ShedRoofRidge",
+    { width: 7.1, height: 0.14, depth: 0.35 },
+    scene
+  );
+  ridge.position = new Vector3(0, 3.95, 0);
+  ridge.material = mats.shedRoof;
+  ridge.parent = shed;
+
+  // Porch slab
+  const porch = MeshBuilder.CreateBox(
+    "ShedPorch",
+    { width: 3.2, height: 0.18, depth: 1.6 },
+    scene
+  );
+  porch.position = new Vector3(0, 0.09, 3.15);
+  porch.material = mats.concrete;
+  porch.parent = shed;
+
+  // Optional HVAC box on roof
+  const hvac = MeshBuilder.CreateBox(
+    "ShedHVAC",
+    { width: 1.4, height: 0.7, depth: 1.1 },
+    scene
+  );
+  hvac.position = new Vector3(-1.6, 4.15, -0.3);
+  hvac.material = mats.steel;
+  hvac.parent = shed;
+
+  const hvacFan = MeshBuilder.CreateCylinder(
+    "ShedHVACFan",
+    { height: 0.12, diameter: 0.55, tessellation: 12 },
+    scene
+  );
+  hvacFan.position = new Vector3(-1.6, 4.55, -0.3);
+  hvacFan.material = mats.steel;
+  hvacFan.parent = shed;
+}
+
+/**
+ * Chunky post+rail fence along yard edges (not skinny wire).
+ * Gaps on axes for yard entrances.
+ */
+function createYardFence(
+  scene: Scene,
+  mats: SharedMaterials,
+  parent: TransformNode
+): void {
+  const fenceRoot = new TransformNode("YardFence", scene);
+  fenceRoot.parent = parent;
+
+  const half = YARD_SIZE / 2 - 1.5; // just inside grass edge
+  const postH = 1.35;
+  const postW = 0.28;
+  const railH = 0.16;
+  const railD = 0.2;
+  const spacing = 4.5;
+  const gateHalf = 5.5; // open gap centered on each axis
+
+  const sides: { axis: "x" | "z"; fixed: number; from: number; to: number }[] = [
+    { axis: "x", fixed: half, from: -half, to: half },
+    { axis: "x", fixed: -half, from: -half, to: half },
+    { axis: "z", fixed: half, from: -half, to: half },
+    { axis: "z", fixed: -half, from: -half, to: half },
+  ];
+
+  let postIdx = 0;
+  let railIdx = 0;
+
+  for (const side of sides) {
+    const posts: number[] = [];
+    for (let t = side.from; t <= side.to + 0.01; t += spacing) {
+      // Skip gate openings near axis centers
+      if (Math.abs(t) < gateHalf) continue;
+      posts.push(t);
+    }
+    // Ensure end posts
+    if (posts.length === 0 || posts[0]! > side.from + 0.1) {
+      if (Math.abs(side.from) >= gateHalf) posts.unshift(side.from);
+    }
+    if (posts.length === 0 || posts[posts.length - 1]! < side.to - 0.1) {
+      if (Math.abs(side.to) >= gateHalf) posts.push(side.to);
+    }
+
+    for (const t of posts) {
+      const post = MeshBuilder.CreateBox(
+        `FencePost_${postIdx++}`,
+        { width: postW, height: postH, depth: postW },
+        scene
+      );
+      if (side.axis === "x") {
+        post.position = new Vector3(side.fixed, postH / 2, t);
+      } else {
+        post.position = new Vector3(t, postH / 2, side.fixed);
+      }
+      post.material = mats.fence;
+      post.parent = fenceRoot;
+    }
+
+    // Rails between consecutive posts (skip large gaps = gates)
+    for (let i = 0; i < posts.length - 1; i++) {
+      const a = posts[i]!;
+      const b = posts[i + 1]!;
+      const span = b - a;
+      if (span > spacing * 1.6) continue; // gate / missing segment
+
+      const mid = (a + b) / 2;
+      const len = span - postW * 0.4;
+
+      for (const railY of [0.45, 0.95] as const) {
+        const rail = MeshBuilder.CreateBox(
+          `FenceRail_${railIdx++}`,
+          side.axis === "x"
+            ? { width: railD, height: railH, depth: len }
+            : { width: len, height: railH, depth: railD },
+          scene
+        );
+        if (side.axis === "x") {
+          rail.position = new Vector3(side.fixed, railY, mid);
+        } else {
+          rail.position = new Vector3(mid, railY, side.fixed);
+        }
+        rail.material = mats.fence;
+        rail.parent = fenceRoot;
+      }
+    }
+  }
 }
 
 function createCrate(
@@ -218,7 +394,7 @@ function createPadMarker(
 }
 
 /**
- * Yard props: concrete pads, school shed, crates, barrels, cones, pad markers A/B.
+ * Yard props: concrete pads, school shed, fence, crates, barrels, cones, markers.
  * Returns pickable loads + pad zones for M2 grab/place.
  */
 export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
@@ -241,6 +417,7 @@ export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
   pads.push(pad3);
 
   createShed(scene, mats, root, -28, 28);
+  createYardFence(scene, mats, root);
 
   // Pickable crates near pads
   loads.push(createCrate("Crate1", scene, mats, root, new Vector3(-16, 0, 10)));

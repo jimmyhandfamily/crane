@@ -14,13 +14,13 @@ export function makeMat(
   name: string,
   scene: Scene,
   hex: string,
-  opts?: { alpha?: number; specular?: number }
+  opts?: { alpha?: number; specular?: number; emissive?: number }
 ): StandardMaterial {
   const mat = new StandardMaterial(name, scene);
   const c = hexToColor3(hex);
   mat.diffuseColor = c;
   mat.specularColor = Color3.Black().scale(opts?.specular ?? 0.08);
-  mat.emissiveColor = c.scale(0.04);
+  mat.emissiveColor = c.scale(opts?.emissive ?? 0.04);
   if (opts?.alpha !== undefined) {
     mat.alpha = opts.alpha;
     mat.transparencyMode = StandardMaterial.MATERIAL_ALPHABLEND;
@@ -42,9 +42,20 @@ export function createSharedMaterials(scene: Scene) {
       alpha: 0.4,
       specular: 0.5,
     }),
+    glassDark: makeMat("matGlassDark", scene, Palette.glassDark, {
+      alpha: 0.55,
+      specular: 0.45,
+      emissive: 0.02,
+    }),
     cones: makeMat("matCones", scene, Palette.cones, { specular: 0.2 }),
     shedWall: makeMat("matShedWall", scene, Palette.shedWall, { specular: 0.08 }),
     shedRoof: makeMat("matShedRoof", scene, Palette.shedRoof, { specular: 0.1 }),
+    shedDoor: makeMat("matShedDoor", scene, Palette.shedDoor, { specular: 0.1 }),
+    shedWindow: makeMat("matShedWindow", scene, Palette.shedWindow, {
+      alpha: 0.5,
+      specular: 0.4,
+    }),
+    fence: makeMat("matFence", scene, Palette.fence, { specular: 0.12 }),
     crate: makeMat("matCrate", scene, Palette.crate, { specular: 0.1 }),
     barrel: makeMat("matBarrel", scene, Palette.barrel, { specular: 0.3 }),
     markerA: makeMat("matMarkerA", scene, Palette.markerA, { specular: 0.15 }),

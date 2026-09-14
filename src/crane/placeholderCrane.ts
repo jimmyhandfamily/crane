@@ -9,7 +9,7 @@ import { CRANE_HEIGHT } from "../config/units";
 import type { SharedMaterials } from "../scene/materials";
 
 /**
- * Procedural placeholder tower crane (~40 m).
+ * Procedural placeholder tower crane (~40 m) — M3 visual upgrade.
  * REQUIRED mesh/node names (exact):
  * CraneRoot, Tracks, Turntable, Counterweight, Cab, CabGlass,
  * BoomRoot, Boom, JibTip, Cable, Hook,
@@ -55,18 +55,41 @@ export function createPlaceholderCrane(
   const CraneRoot = new TransformNode("CraneRoot", scene);
   CraneRoot.position = new Vector3(0, 0, 0);
 
-  // --- Tracks (base carriage) ---
+  // --- Tracks (base carriage) + thin grouser ridges ---
   const Tracks = MeshBuilder.CreateBox(
     "Tracks",
-    { width: 6, height: 0.8, depth: 8 },
+    { width: 6.2, height: 0.85, depth: 8.4 },
     scene
   );
-  Tracks.position = new Vector3(0, 0.4, 0);
+  Tracks.position = new Vector3(0, 0.42, 0);
   Tracks.material = mats.steel;
   Tracks.parent = CraneRoot;
 
-  // Outriggers (N/E/S/W)
-  const outriggerLen = 5;
+  // Left / right track shoes with grouser ridges (readable from high camera)
+  for (const side of [-1, 1] as const) {
+    const shoe = MeshBuilder.CreateBox(
+      `TrackShoe_${side > 0 ? "R" : "L"}`,
+      { width: 1.35, height: 0.55, depth: 8.6 },
+      scene
+    );
+    shoe.position = new Vector3(side * 2.55, 0.28, 0);
+    shoe.material = mats.steel;
+    shoe.parent = Tracks;
+
+    for (let g = 0; g < 11; g++) {
+      const ridge = MeshBuilder.CreateBox(
+        `TrackGrouser_${side > 0 ? "R" : "L"}_${g}`,
+        { width: 1.45, height: 0.12, depth: 0.18 },
+        scene
+      );
+      ridge.position = new Vector3(side * 2.55, 0.58, -3.8 + g * 0.76);
+      ridge.material = mats.craneYellow;
+      ridge.parent = Tracks;
+    }
+  }
+
+  // --- Outriggers: beam + pad under each required node ---
+  const outriggerLen = 5.2;
   const outriggerSpec: { name: string; pos: Vector3; rotY: number }[] = [
     { name: "OutriggerN", pos: new Vector3(0, 0.25, 5), rotY: 0 },
     { name: "OutriggerE", pos: new Vector3(5, 0.25, 0), rotY: Math.PI / 2 },
@@ -74,25 +97,48 @@ export function createPlaceholderCrane(
     { name: "OutriggerW", pos: new Vector3(-5, 0.25, 0), rotY: Math.PI / 2 },
   ];
   for (const o of outriggerSpec) {
-    const arm = MeshBuilder.CreateBox(
-      o.name,
-      { width: 0.4, height: 0.35, depth: outriggerLen },
-      scene
-    );
-    arm.position = o.pos;
-    arm.rotation.y = o.rotY;
-    arm.material = mats.steel;
-    arm.parent = CraneRoot;
+    const root = new TransformNode(o.name, scene);
+    root.position = o.pos;
+    root.rotation.y = o.rotY;
+    root.parent = CraneRoot;
 
-    // Foot pad
-    const foot = MeshBuilder.CreateBox(
-      `${o.name}_Foot`,
-      { width: 1.2, height: 0.2, depth: 1.2 },
+    const beam = MeshBuilder.CreateBox(
+      `${o.name}_Beam`,
+      { width: 0.55, height: 0.4, depth: outriggerLen },
       scene
     );
-    foot.position = new Vector3(o.pos.x * 1.55, 0.1, o.pos.z * 1.55);
-    foot.material = mats.craneYellow;
-    foot.parent = CraneRoot;
+    beam.position = new Vector3(0, 0, 0);
+    beam.material = mats.steel;
+    beam.parent = root;
+
+    // Outer telescope hint
+    const outer = MeshBuilder.CreateBox(
+      `${o.name}_Outer`,
+      { width: 0.7, height: 0.28, depth: 1.4 },
+      scene
+    );
+    outer.position = new Vector3(0, -0.02, outriggerLen * 0.35);
+    outer.material = mats.craneYellow;
+    outer.parent = root;
+
+    // Foot pad at outer end (local +Z)
+    const pad = MeshBuilder.CreateBox(
+      `${o.name}_Pad`,
+      { width: 1.5, height: 0.22, depth: 1.5 },
+      scene
+    );
+    pad.position = new Vector3(0, -0.18, outriggerLen * 0.48);
+    pad.material = mats.craneYellow;
+    pad.parent = root;
+
+    const padLip = MeshBuilder.CreateBox(
+      `${o.name}_PadLip`,
+      { width: 1.65, height: 0.08, depth: 1.65 },
+      scene
+    );
+    padLip.position = new Vector3(0, -0.05, outriggerLen * 0.48);
+    padLip.material = mats.steel;
+    padLip.parent = root;
   }
 
   // Mast (yellow tower sections up to ~40 m)
@@ -102,7 +148,7 @@ export function createPlaceholderCrane(
   for (let i = 0; i < sections; i++) {
     const section = MeshBuilder.CreateBox(
       `MastSection_${i}`,
-      { width: 2.2, height: sectionH * 0.92, depth: 2.2 },
+      { width: 2.35, height: sectionH * 0.92, depth: 2.35 },
       scene
     );
     section.position = new Vector3(0, 0.8 + i * sectionH + sectionH / 2, 0);
@@ -112,7 +158,7 @@ export function createPlaceholderCrane(
     // Cross brace hint
     const brace = MeshBuilder.CreateBox(
       `MastBrace_${i}`,
-      { width: 2.4, height: 0.15, depth: 0.15 },
+      { width: 2.55, height: 0.18, depth: 0.18 },
       scene
     );
     brace.position = new Vector3(0, 0.8 + i * sectionH + sectionH * 0.92, 0);
@@ -122,7 +168,7 @@ export function createPlaceholderCrane(
 
   const mastTopY = 0.8 + sections * sectionH;
 
-  // --- Turntable (mesh; yaw driven via SlewingAssembly) ---
+  // --- Turntable + thin collar ring ---
   const Turntable = MeshBuilder.CreateCylinder(
     "Turntable",
     { height: 1.2, diameter: 3.5, tessellation: 24 },
@@ -132,47 +178,97 @@ export function createPlaceholderCrane(
   Turntable.material = mats.steel;
   Turntable.parent = CraneRoot;
 
+  const collar = MeshBuilder.CreateCylinder(
+    "TurntableCollar",
+    { height: 0.18, diameter: 4.15, tessellation: 28 },
+    scene
+  );
+  collar.position = new Vector3(0, 0.55, 0);
+  collar.material = mats.craneYellow;
+  collar.parent = Turntable;
+
+  const collarInner = MeshBuilder.CreateCylinder(
+    "TurntableCollarInner",
+    { height: 0.12, diameter: 3.75, tessellation: 28 },
+    scene
+  );
+  collarInner.position = new Vector3(0, 0.62, 0);
+  collarInner.material = mats.steel;
+  collarInner.parent = Turntable;
+
   const slewing = new TransformNode("SlewingAssembly", scene);
   slewing.parent = CraneRoot;
   slewing.position = new Vector3(0, mastTopY + 1.2, 0);
 
-  // --- Cab ---
+  // --- Cab + roof overhang ---
   const Cab = MeshBuilder.CreateBox(
     "Cab",
-    { width: 2.4, height: 2.2, depth: 2.6 },
+    { width: 2.5, height: 2.25, depth: 2.7 },
     scene
   );
-  Cab.position = new Vector3(0, 1.3, 1.8);
+  Cab.position = new Vector3(0, 1.3, 1.85);
   Cab.material = mats.craneYellow;
   Cab.parent = slewing;
 
-  // CabGlass (front window panel)
+  const cabRoof = MeshBuilder.CreateBox(
+    "CabRoofOverhang",
+    { width: 2.85, height: 0.16, depth: 3.05 },
+    scene
+  );
+  cabRoof.position = new Vector3(0, 2.52, 1.9);
+  cabRoof.material = mats.craneYellow;
+  cabRoof.parent = slewing;
+
+  // CabGlass — slightly inset, darker tint
   const CabGlass = MeshBuilder.CreateBox(
     "CabGlass",
-    { width: 2.0, height: 1.4, depth: 0.08 },
+    { width: 1.85, height: 1.25, depth: 0.07 },
     scene
   );
-  CabGlass.position = new Vector3(0, 1.5, 3.12);
-  CabGlass.material = mats.glass;
+  CabGlass.position = new Vector3(0, 1.55, 3.05);
+  CabGlass.material = mats.glassDark;
   CabGlass.parent = slewing;
 
-  // --- Counterweight ---
+  // Side glass hints (decorative)
+  for (const sx of [-1, 1] as const) {
+    const sideGlass = MeshBuilder.CreateBox(
+      `CabSideGlass_${sx > 0 ? "R" : "L"}`,
+      { width: 0.06, height: 1.1, depth: 1.6 },
+      scene
+    );
+    sideGlass.position = new Vector3(sx * 1.28, 1.55, 1.9);
+    sideGlass.material = mats.glassDark;
+    sideGlass.parent = slewing;
+  }
+
+  // --- Counterweight: stacked plates ---
   const Counterweight = MeshBuilder.CreateBox(
     "Counterweight",
-    { width: 3.2, height: 1.6, depth: 2.4 },
+    { width: 3.3, height: 0.45, depth: 2.5 },
     scene
   );
-  Counterweight.position = new Vector3(0, 1.0, -6);
+  Counterweight.position = new Vector3(0, 0.45, -6);
   Counterweight.material = mats.steel;
   Counterweight.parent = slewing;
+
+  for (let p = 1; p <= 3; p++) {
+    const plate = MeshBuilder.CreateBox(
+      `CounterPlate_${p}`,
+      { width: 3.15 - p * 0.08, height: 0.38, depth: 2.35 - p * 0.06 },
+      scene
+    );
+    plate.position = new Vector3(0, 0.45 + p * 0.42, 0);
+    plate.material = p % 2 === 0 ? mats.craneYellow : mats.steel;
+    plate.parent = Counterweight;
+  }
 
   // Counter jib beam
   const counterBeam = MeshBuilder.CreateBox(
     "CounterBeam",
-    { width: 0.6, height: 0.5, depth: 8 },
+    { width: 0.7, height: 0.55, depth: 8.2 },
     scene
   );
-  counterBeam.position = new Vector3(0, 2.2, -4);
+  counterBeam.position = new Vector3(0, 2.25, -4);
   counterBeam.material = mats.craneYellow;
   counterBeam.parent = slewing;
 
@@ -182,37 +278,79 @@ export function createPlaceholderCrane(
   BoomRoot.position = new Vector3(0, 2.4, 0);
 
   const boomLength = BOOM_LENGTH;
+  // Thick outer silhouette for readable boom from ~60° camera
   const Boom = MeshBuilder.CreateBox(
     "Boom",
-    { width: 1.0, height: 1.0, depth: boomLength },
+    { width: 1.25, height: 1.25, depth: boomLength },
     scene
   );
   Boom.position = new Vector3(0, 0, boomLength / 2 + 1);
   Boom.material = mats.craneYellow;
   Boom.parent = BoomRoot;
 
-  // Lattice accents along boom
-  for (let i = 0; i < 6; i++) {
-    const lat = MeshBuilder.CreateBox(
-      `BoomLattice_${i}`,
-      { width: 1.3, height: 0.12, depth: 0.12 },
+  // Chord rails (outer silhouette thickening)
+  for (const [cx, cy] of [
+    [-0.62, 0.62],
+    [0.62, 0.62],
+    [-0.62, -0.62],
+    [0.62, -0.62],
+  ] as const) {
+    const chord = MeshBuilder.CreateBox(
+      `BoomChord_${cx}_${cy}`,
+      { width: 0.16, height: 0.16, depth: boomLength * 0.98 },
       scene
     );
-    lat.position = new Vector3(0, 0.55, 4 + i * 5.5);
-    lat.material = mats.steel;
-    lat.parent = BoomRoot;
+    chord.position = new Vector3(cx, cy, 0);
+    chord.material = mats.steel;
+    chord.parent = Boom;
+  }
+
+  // 2–4 X-frame cross-bracing child boxes under Boom
+  const xFrames = 4;
+  for (let i = 0; i < xFrames; i++) {
+    const zLocal = -boomLength / 2 + 4 + i * ((boomLength - 6) / (xFrames - 1));
+    // Diagonal / (local XZ plane of boom side)
+    const x1 = MeshBuilder.CreateBox(
+      `BoomXBraceA_${i}`,
+      { width: 0.11, height: 0.11, depth: 1.55 },
+      scene
+    );
+    x1.position = new Vector3(0, 0, zLocal);
+    x1.rotation.z = Math.PI / 4;
+    x1.material = mats.steel;
+    x1.parent = Boom;
+
+    const x2 = MeshBuilder.CreateBox(
+      `BoomXBraceB_${i}`,
+      { width: 0.11, height: 0.11, depth: 1.55 },
+      scene
+    );
+    x2.position = new Vector3(0, 0, zLocal);
+    x2.rotation.z = -Math.PI / 4;
+    x2.material = mats.steel;
+    x2.parent = Boom;
+
+    // Vertical bay post
+    const post = MeshBuilder.CreateBox(
+      `BoomBayPost_${i}`,
+      { width: 0.1, height: 1.15, depth: 0.1 },
+      scene
+    );
+    post.position = new Vector3(0, 0, zLocal);
+    post.material = mats.steel;
+    post.parent = Boom;
   }
 
   const JibTip = MeshBuilder.CreateBox(
     "JibTip",
-    { width: 1.2, height: 1.2, depth: 1.2 },
+    { width: 1.35, height: 1.35, depth: 1.35 },
     scene
   );
   JibTip.position = new Vector3(0, 0, boomLength + 1.5);
   JibTip.material = mats.steel;
   JibTip.parent = BoomRoot;
 
-  // --- Trolley + Cable + Hook ---
+  // --- Trolley + thicker multi-segment Cable + Hook block/cheeks ---
   const initialTrolleyZ = 22;
   const initialCableLength = 18;
   const boomWorldY = mastTopY + 1.2 + 2.4; // ~40.4 m
@@ -221,35 +359,78 @@ export function createPlaceholderCrane(
   trolley.parent = BoomRoot;
   trolley.position = new Vector3(0, 0, initialTrolleyZ);
 
-  // Small trolley carriage visual (not a required name)
   const trolleyBody = MeshBuilder.CreateBox(
     "TrolleyBody",
-    { width: 0.9, height: 0.35, depth: 0.9 },
+    { width: 1.05, height: 0.4, depth: 1.05 },
     scene
   );
   trolleyBody.position = new Vector3(0, -0.55, 0);
   trolleyBody.material = mats.steel;
   trolleyBody.parent = trolley;
 
+  const trolleyWheels = MeshBuilder.CreateBox(
+    "TrolleyWheels",
+    { width: 1.2, height: 0.18, depth: 0.35 },
+    scene
+  );
+  trolleyWheels.position = new Vector3(0, -0.28, 0);
+  trolleyWheels.material = mats.craneYellow;
+  trolleyWheels.parent = trolley;
+
+  // Primary Cable (unit height; placeHoist scales Y) — thicker for M3
   const Cable = MeshBuilder.CreateCylinder(
     "Cable",
-    { height: 1, diameter: 0.08, tessellation: 8 },
+    { height: 1, diameter: 0.14, tessellation: 10 },
     scene
   );
   Cable.material = mats.steel;
   Cable.parent = trolley;
 
+  // Parallel strands — children of Cable so they stretch with hoist scale
+  for (const ox of [-0.07, 0.07] as const) {
+    const strand = MeshBuilder.CreateCylinder(
+      `CableStrand_${ox > 0 ? "R" : "L"}`,
+      { height: 1, diameter: 0.07, tessellation: 8 },
+      scene
+    );
+    strand.position = new Vector3(ox, 0, 0);
+    strand.material = mats.steel;
+    strand.parent = Cable;
+  }
+
+  // Hook = block + cheek plates (cheeks parented so placeHoist keeps working)
   const Hook = MeshBuilder.CreateBox(
     "Hook",
-    { width: 0.6, height: 0.9, depth: 0.4 },
+    { width: 0.55, height: 0.95, depth: 0.45 },
     scene
   );
   Hook.material = mats.craneYellow;
   Hook.parent = trolley;
 
+  for (const sx of [-1, 1] as const) {
+    const cheek = MeshBuilder.CreateBox(
+      `HookCheek_${sx > 0 ? "R" : "L"}`,
+      { width: 0.12, height: 1.05, depth: 0.55 },
+      scene
+    );
+    cheek.position = new Vector3(sx * 0.34, 0, 0);
+    cheek.material = mats.steel;
+    cheek.parent = Hook;
+  }
+
+  const hookSheave = MeshBuilder.CreateCylinder(
+    "HookSheave",
+    { height: 0.2, diameter: 0.42, tessellation: 14 },
+    scene
+  );
+  hookSheave.rotation.z = Math.PI / 2;
+  hookSheave.position = new Vector3(0, 0.35, 0);
+  hookSheave.material = mats.steel;
+  hookSheave.parent = Hook;
+
   const hookRing = MeshBuilder.CreateTorus(
     "HookRing",
-    { diameter: 0.5, thickness: 0.1, tessellation: 16 },
+    { diameter: 0.55, thickness: 0.12, tessellation: 16 },
     scene
   ) as Mesh;
   hookRing.rotation.x = Math.PI / 2;
