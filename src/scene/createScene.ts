@@ -12,11 +12,13 @@ import {
   type CraneController,
 } from "../crane";
 import { createLoadManager, type LoadManager } from "../loads";
+import { createAmbientTraffic, type AmbientTraffic } from "./ambientTraffic";
 import { createBlobShadows, type BlobShadows } from "./blobShadows";
 import { createGround } from "./ground";
 import { createLights } from "./lights";
 import { createSharedMaterials } from "./materials";
 import { createProps } from "./props";
+import { createYardDressing, type YardDressing } from "./yardDressing";
 
 export interface CraneScene {
   scene: Scene;
@@ -24,6 +26,8 @@ export interface CraneScene {
   crane: CraneController;
   loads: LoadManager;
   blobShadows: BlobShadows;
+  ambientTraffic: AmbientTraffic;
+  yardDressing: YardDressing;
 }
 
 export function createCraneScene(
@@ -50,6 +54,16 @@ export function createCraneScene(
   const { loads: loadItems, pads } = createProps(scene, mats);
   const loads = createLoadManager(loadItems, pads);
   const blobShadows = createBlobShadows(scene);
+  const ambientTraffic = createAmbientTraffic(scene, mats);
+  const yardDressing = createYardDressing(scene, mats);
 
-  return { scene, engine, crane, loads, blobShadows };
+  return {
+    scene,
+    engine,
+    crane,
+    loads,
+    blobShadows,
+    ambientTraffic,
+    yardDressing,
+  };
 }

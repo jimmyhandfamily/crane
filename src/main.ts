@@ -54,7 +54,14 @@ function boot(): void {
     adaptToDeviceRatio: true,
   });
 
-  const { scene, crane, loads, blobShadows } = createCraneScene(engine, canvas);
+  const {
+    scene,
+    crane,
+    loads,
+    blobShadows,
+    ambientTraffic,
+    yardDressing,
+  } = createCraneScene(engine, canvas);
 
   engine.runRenderLoop(() => {
     const dt = engine.getDeltaTime() / 1000;
@@ -65,6 +72,8 @@ function boot(): void {
     }
     loads.update(crane.parts);
     blobShadows.update(crane.parts, loads);
+    ambientTraffic.update(dt);
+    yardDressing.update(dt);
     scene.render();
   });
 
@@ -73,7 +82,7 @@ function boot(): void {
   });
 
   console.info(
-    `[Crane M2] Grab/place ready — attach≤${ATTACH_DISTANCE}m, Space/Grab toggle, rank=${career.rank}`
+    `[Crane] Grab/place ready — attach≤${ATTACH_DISTANCE}m, ambient traffic + workers, rank=${career.rank}`
   );
 }
 

@@ -60,6 +60,37 @@ export function createSharedMaterials(scene: Scene) {
     barrel: makeMat("matBarrel", scene, Palette.barrel, { specular: 0.3 }),
     markerA: makeMat("matMarkerA", scene, Palette.markerA, { specular: 0.15 }),
     markerB: makeMat("matMarkerB", scene, Palette.markerB, { specular: 0.15 }),
+    // Ambient traffic / yard dressing
+    gravel: makeMat("matGravel", scene, Palette.gravel, { specular: 0.05 }),
+    gravelLight: makeMat("matGravelLight", scene, Palette.gravelLight, {
+      specular: 0.06,
+    }),
+    berm: makeMat("matBerm", scene, Palette.berm, { specular: 0.04 }),
+    bermDark: makeMat("matBermDark", scene, Palette.bermDark, { specular: 0.04 }),
+    truckWhite: makeMat("matTruckWhite", scene, Palette.truckWhite, {
+      specular: 0.18,
+    }),
+    truckBlue: makeMat("matTruckBlue", scene, Palette.truckBlue, {
+      specular: 0.18,
+    }),
+    truckBox: makeMat("matTruckBox", scene, Palette.truckBox, {
+      specular: 0.12,
+    }),
+    wheel: makeMat("matWheel", scene, Palette.wheel, { specular: 0.05 }),
+    coverallsBlue: makeMat("matCoverallsBlue", scene, Palette.coverallsBlue, {
+      specular: 0.1,
+    }),
+    coverallsGreen: makeMat("matCoverallsGreen", scene, Palette.coverallsGreen, {
+      specular: 0.1,
+    }),
+    hardhatOrange: makeMat("matHardhatOrange", scene, Palette.hardhatOrange, {
+      specular: 0.25,
+    }),
+    hardhatYellow: makeMat("matHardhatYellow", scene, Palette.hardhatYellow, {
+      specular: 0.25,
+    }),
+    vest: makeMat("matVest", scene, Palette.vest, { specular: 0.2 }),
+    skin: makeMat("matSkin", scene, Palette.skin, { specular: 0.08 }),
   };
 }
 
