@@ -53,6 +53,7 @@ Kinematic attach (no physics engine). Builds on M1 slew / trolley / hoist.
 - `src/crane/controls.ts` — Space + `#btn-grab` edge trigger
 - `src/scene/createScene.ts`, `src/main.ts`, `src/crane/index.ts`
 - `index.html` — Grab/Release button + HUD copy
+- `src/scene/blobShadows.ts` — soft ground blobs under hook + attached load
 - `STATUS.md`
 
 ### Still intact from M1 / M0
@@ -61,6 +62,18 @@ Kinematic attach (no physics engine). Builds on M1 slew / trolley / hoist.
 - Graphics palette / soft yard look
 - Camera orbit + zoom; A/D W/S R/F + hold pad
 - Career stub HUD
+
+
+## Ground position feedback (blob shadows)
+
+Soft dark disc blobs on the ground (y≈0.18) for playability — **no** Babylon shadow generator (keeps the friendly M0 look).
+
+- **HookGroundShadow** — always follows hook XZ; diameter ~1.35 m, scales slightly with height
+- **LoadGroundShadow** — enabled while a load is attached; sized from load radius (~1.5 m+)
+- Soft radial alpha texture so the cue stays readable from the high ~60° camera over dirt/pads
+- Vertical guide / height readout skipped to avoid clutter
+
+Files: `src/scene/blobShadows.ts`; wired in `createScene.ts` + `main.ts` render loop.
 
 ## Caveats
 

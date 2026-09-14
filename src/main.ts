@@ -54,7 +54,7 @@ function boot(): void {
     adaptToDeviceRatio: true,
   });
 
-  const { scene, crane, loads } = createCraneScene(engine, canvas);
+  const { scene, crane, loads, blobShadows } = createCraneScene(engine, canvas);
 
   engine.runRenderLoop(() => {
     const dt = engine.getDeltaTime() / 1000;
@@ -64,6 +64,7 @@ function boot(): void {
       syncGrabButton(loads.attached !== null);
     }
     loads.update(crane.parts);
+    blobShadows.update(crane.parts, loads);
     scene.render();
   });
 
