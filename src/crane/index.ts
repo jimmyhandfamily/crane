@@ -44,4 +44,5 @@ export {
   getCraneInput,
   consumeGrabPress,
   queueGrabPress,
+  consumeCabToggle,
 } from "./controls";

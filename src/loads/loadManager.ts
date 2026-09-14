@@ -13,7 +13,7 @@ import {
   type CranePhysics,
 } from "../crane/cranePhysics";
 import type { LoadItem, PadZone } from "./types";
-import { setObjective, setPayTease, setTitle } from "../ui/hud";
+import { setObjective, setPayTease, setRole, setTitle } from "../ui/hud";
 import {
   getCareerState,
   recordJobComplete,
@@ -38,6 +38,8 @@ export interface LoadManager {
   /** Optional physics for soft-magnet nudge while aiming. */
   update(parts: CraneParts, physics?: CranePhysics): void;
 }
+
+export type DustSpawnFn = (x: number, y: number, z: number) => void;
 
 const _hook = new Vector3();
 const _top = new Vector3();
@@ -234,6 +236,7 @@ function onLesson2Win(mgr: LoadManager): void {
   const career = getCareerState();
   setPayTease(career.dayRate, "Lesson 2 complete — both pads");
   setTitle(career.title);
+  setRole(career.rank === "Junior" ? "Junior Operator" : career.rank);
   updateObjective(mgr);
 }
 
@@ -259,7 +262,8 @@ function applySoftMagnetNudge(
 export function createLoadManager(
   loads: LoadItem[],
   pads: PadZone[],
-  propsRoot: Object3D
+  propsRoot: Object3D,
+  onDust?: DustSpawnFn
 ): LoadManager {
   for (const load of loads) {
     load.mesh.userData.propsRoot = propsRoot;
@@ -288,6 +292,9 @@ export function createLoadManager(
         load.mesh.rotation.set(0, 0, 0);
         load.attached = false;
         mgr.attached = null;
+
+        // Dust puff on place (ground or pad)
+        onDust?.(_world.x, 0.08, _world.z);
 
         const pad = findPadUnder(load, mgr.pads);
         if (pad) {

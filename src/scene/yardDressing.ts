@@ -236,6 +236,64 @@ function applyWalkPose(limbs: WorkerLimbs, moving: boolean, dt: number): void {
   limbs.hips.position.y = limbs.baseHipY + bob;
 }
 
+
+function createIdleExcavator(
+  mats: SharedMaterials,
+  parent: Object3D
+): { root: Object3D; boom: Object3D; stick: Object3D; bucket: Object3D } {
+  const root = group("AmbientExcavator1", parent);
+  // Yard edge — SE corner, clear of pads/traffic
+  root.position.set(38, 0, -36);
+  root.rotation.y = -Math.PI * 0.35;
+
+  const bodyMat = mats.craneYellow;
+  const dark = mats.steel;
+
+  // Tracks
+  const trackL = box("AmbientExcavator1_TrackL", 0.55, 0.55, 3.4, dark, root);
+  trackL.position.set(-1.05, 0.35, 0);
+  const trackR = box("AmbientExcavator1_TrackR", 0.55, 0.55, 3.4, dark, root);
+  trackR.position.set(1.05, 0.35, 0);
+
+  const chassis = box("AmbientExcavator1_Chassis", 2.4, 0.55, 2.8, bodyMat, root);
+  chassis.position.set(0, 0.85, 0);
+
+  const house = box("AmbientExcavator1_House", 2.2, 1.5, 2.4, bodyMat, root);
+  house.position.set(0, 1.85, -0.15);
+
+  const cabGlass = box("AmbientExcavator1_Glass", 0.08, 0.85, 1.3, mats.glassDark, root);
+  cabGlass.position.set(1.15, 2.05, 0.2);
+
+  const counter = box("AmbientExcavator1_Counter", 2.0, 0.9, 0.9, dark, root);
+  counter.position.set(0, 1.55, -1.45);
+
+  // Articulated boom pivot
+  const boom = group("AmbientExcavator1_Boom", root);
+  boom.position.set(0, 2.15, 1.0);
+  boom.rotation.x = -0.55;
+
+  const boomArm = box("AmbientExcavator1_BoomArm", 0.45, 0.45, 3.2, bodyMat, boom);
+  boomArm.position.set(0, 0, 1.5);
+
+  const stick = group("AmbientExcavator1_Stick", boom);
+  stick.position.set(0, 0, 3.1);
+  stick.rotation.x = 1.05;
+
+  const stickArm = box("AmbientExcavator1_StickArm", 0.38, 0.38, 2.2, bodyMat, stick);
+  stickArm.position.set(0, 0, 1.05);
+
+  const bucket = group("AmbientExcavator1_Bucket", stick);
+  bucket.position.set(0, 0, 2.15);
+  bucket.rotation.x = 0.55;
+
+  const bucketBody = box("AmbientExcavator1_BucketBody", 1.1, 0.55, 0.85, dark, bucket);
+  bucketBody.position.set(0, -0.15, 0.25);
+  const bucketLip = box("AmbientExcavator1_BucketLip", 1.2, 0.12, 0.2, mats.steel, bucket);
+  bucketLip.position.set(0, -0.4, 0.55);
+
+  return { root, boom, stick, bucket };
+}
+
 export function createYardDressing(
   scene: Scene,
   mats: SharedMaterials
@@ -313,6 +371,9 @@ export function createYardDressing(
     },
   ];
 
+  const excavator = createIdleExcavator(mats, root);
+  let excavatorT = 0;
+
   const loops: WalkLoop[] = workerDefs.map((def) => {
     const { root: worker, limbs } = createWorker(
       def.name,
@@ -367,6 +428,12 @@ export function createYardDressing(
       }
       applyWalkPose(loop.limbs, true, dt);
     }
+
+    // Light idle: gentle boom / bucket bob
+    excavatorT += dt;
+    const bob = Math.sin(excavatorT * 0.55) * 0.04;
+    excavator.boom.rotation.x = -0.55 + bob;
+    excavator.bucket.rotation.x = 0.55 + Math.sin(excavatorT * 0.7) * 0.06;
   };
 
   return { root, update };

@@ -13,32 +13,50 @@
 
 Packages: `three@^0.186`, `@types/three`, `vite@^6.3.5`, `typescript@~5.8.3`
 
-## Improvements 1–5 (this session)
+## Improvements 6–10 (this session)
+
+### 6. Cab camera toggle
+- Key **C** switches orbit jobsite cam ↔ cab-ish view near `Cab` node looking along boom (+Z slewing).
+- C again restores saved orbit position/target; OrbitControls disabled while in cab.
+- HUD hint includes `C cab cam`.
+
+### 7. Gate opens for trucks
+- `scene/yardGates.ts`: west entry + north exit gate leaves (fence gap).
+- Opens when AmbientTruck/Mixer within ~14 m; closes after ~22 m.
+- Driven each frame from `ambientTraffic.getTruckPoses()`.
+
+### 8. Idle excavator
+- `AmbientExcavator1` low-poly excavator parked SE yard edge.
+- Light idle boom/bucket bob.
+
+### 9. Dust puff on load place
+- `scene/dustPuffs.ts`: 3 expanding translucent discs on release (ground/pad).
+- Auto-fade ~0.55–0.8 s; wired from load manager.
+
+### 10. Junior rank
+- After Lesson 2: title → **Junior Operator**, rank → `Junior` (persisted in `crane.career.v1`).
+- Migrates prior “Training Yard — Graduated” saves.
+- HUD title + role update on win and on load.
+
+## Improvements 1–5 (prior)
 
 ### 1. localStorage persist
 - Key `crane.career.v1`: day rate, jobsCompleted, title, lesson1/2 flags, padA/padB placed.
 - Restored on load; HUD title, pay tease, and objective sync from career state.
-- Rank stays **Apprentice**.
 
 ### 2. Lesson 2
 - Lesson 1: place a crate on **Pad A** → pay bump + title → “Training Yard — Lesson 2”.
-- Lesson 2 objective: place crates on **both Pad A and Pad B** (✓/○ tracked each).
-- When both pads done → Lesson 2 complete, title “Training Yard — Graduated”, second pay bump.
-- Lattice crane / grab highlight / mixer / wind unchanged.
+- Lesson 2: both Pad A and Pad B → Junior Operator + second pay bump.
 
 ### 3. Swing warning
-- `getSwayAngle()` on physics; threshold `SWAY_WARN_ANGLE` ≈ 3.2°.
-- When loaded and sway above threshold: load meter `data-band="swing"`, label **“Swing high”** (orange).
-- Clears when settled or hook empty.
+- `getSwayAngle()`; threshold `SWAY_WARN_ANGLE` ≈ 3.2°.
+- Loaded + high sway → load meter `data-band="swing"`, **“Swing high”**.
 
 ### 4. Soft magnet snap
-- Free load in attach range and nearly aligned (`SOFT_MAGNET_ALIGN_FRAC` of horiz max):
-  gentle world-XZ nudge via `physics.applySoftMagnet` (capped ~3.5 cm/frame).
-- Subtle assist — not sticky teleport; grab highlight still drives aim UX.
+- Gentle world-XZ nudge via `physics.applySoftMagnet` when nearly aligned.
 
 ### 5. Sky
-- `scene/sky.ts`: canvas vertical gradient background + 3 soft cloud planes.
-- Friendly cartoon-real look; fog haze preserved.
+- Canvas vertical gradient + 3 soft cloud planes; fog haze preserved.
 
 ## Structure pass (prior)
 
@@ -51,7 +69,6 @@ Packages: `three@^0.186`, `@types/three`, `vite@^6.3.5`, `typescript@~5.8.3`
 ## Grab aim highlight
 
 - Within `ATTACH_DISTANCE` 1.25 m / `ATTACH_HORIZONTAL_MAX` 1.1 m: emissive + outline.
-- Cleared when leaving range or after grab.
 
 ## Ambient concrete mixer
 

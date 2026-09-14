@@ -20,6 +20,7 @@ export const CABLE_LENGTH_MAX = 38;
 export interface CraneParts {
   root: Object3D;
   slewing: Object3D;
+  cab: Mesh;
   turntable: Mesh;
   boomRoot: Object3D;
   boom: Object3D;
@@ -579,6 +580,7 @@ export function createPlaceholderCrane(
   return {
     root: CraneRoot,
     slewing,
+    cab: Cab,
     turntable: Turntable,
     boomRoot: BoomRoot,
     boom: Boom,

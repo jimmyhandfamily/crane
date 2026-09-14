@@ -3,7 +3,7 @@
  * Win beat: bump day rate + jobsCompleted for HUD pay tease.
  */
 
-export type CareerRank = "Apprentice" | "Journeyman" | "Operator" | "Master";
+export type CareerRank = "Apprentice" | "Junior" | "Journeyman" | "Operator" | "Master";
 
 export interface CareerState {
   rank: CareerRank;
@@ -40,7 +40,7 @@ function loadPersisted(): CareerState {
       return { ...INITIAL, unlockedYards: [...INITIAL.unlockedYards] };
     }
     const parsed = JSON.parse(raw) as Partial<CareerState>;
-    return {
+    const loaded: CareerState = {
       rank: (parsed.rank as CareerRank) || INITIAL.rank,
       dayRate: typeof parsed.dayRate === "number" ? parsed.dayRate : 0,
       jobsCompleted:
@@ -54,6 +54,30 @@ function loadPersisted(): CareerState {
       padAPlaced: !!parsed.padAPlaced,
       padBPlaced: !!parsed.padBPlaced,
     };
+    // Migrate prior "Graduated" title → Junior Operator
+    if (loaded.lesson2Complete) {
+      let migrated = false;
+      if (
+        loaded.title === "Training Yard — Graduated" ||
+        loaded.title === "Training Yard — Lesson 2" ||
+        !loaded.title
+      ) {
+        loaded.title = "Junior Operator";
+        migrated = true;
+      }
+      if (loaded.rank === "Apprentice") {
+        loaded.rank = "Junior";
+        migrated = true;
+      }
+      if (migrated) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded));
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    return loaded;
   } catch {
     return { ...INITIAL, unlockedYards: [...INITIAL.unlockedYards] };
   }
@@ -98,7 +122,7 @@ export function recordPadCratePlaced(padLabel: string): boolean {
   return changed;
 }
 
-/** Win: bump day rate (+$120, or $0 → $240 on first), +1 job. Rank stays Apprentice. */
+/** Win: bump day rate (+$120, or $0 → $240 on first), +1 job. L2 → Junior Operator. */
 export function recordJobComplete(jobId: string): void {
   const bump = state.dayRate === 0 ? 240 : 120;
   const next: CareerState = {
@@ -114,7 +138,8 @@ export function recordJobComplete(jobId: string): void {
   }
   if (jobId === "training-yard-lesson-2") {
     next.lesson2Complete = true;
-    next.title = "Training Yard — Graduated";
+    next.title = "Junior Operator";
+    next.rank = "Junior";
   }
   state = next;
   persist();

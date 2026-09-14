@@ -14,11 +14,13 @@ import {
 import { createLoadManager, type LoadManager } from "../loads";
 import { createAmbientTraffic, type AmbientTraffic } from "./ambientTraffic";
 import { createBlobShadows, type BlobShadows } from "./blobShadows";
+import { createDustPuffs, type DustPuffs } from "./dustPuffs";
 import { createGround } from "./ground";
 import { createLights } from "./lights";
 import { createSharedMaterials } from "./materials";
 import { createProps } from "./props";
 import { createYardDressing, type YardDressing } from "./yardDressing";
+import { createYardGates, type YardGates } from "./yardGates";
 import { createSky } from "./sky";
 
 export interface CraneScene {
@@ -31,6 +33,10 @@ export interface CraneScene {
   blobShadows: BlobShadows;
   ambientTraffic: AmbientTraffic;
   yardDressing: YardDressing;
+  yardGates: YardGates;
+  dustPuffs: DustPuffs;
+  /** Crane parts for cab camera (Cab node). */
+  craneParts: ReturnType<typeof createPlaceholderCrane>;
 }
 
 export function createCraneScene(
@@ -49,10 +55,14 @@ export function createCraneScene(
   const parts = createPlaceholderCrane(scene, mats);
   const crane = createCraneController(parts);
   const { loads: loadItems, pads, root: propsRoot } = createProps(scene, mats);
-  const loads = createLoadManager(loadItems, pads, propsRoot);
+  const dustPuffs = createDustPuffs(scene);
+  const loads = createLoadManager(loadItems, pads, propsRoot, (x, y, z) =>
+    dustPuffs.spawn(x, y, z)
+  );
   const blobShadows = createBlobShadows(scene);
   const ambientTraffic = createAmbientTraffic(scene, mats);
   const yardDressing = createYardDressing(scene, mats);
+  const yardGates = createYardGates(scene, mats);
 
   return {
     scene,
@@ -64,5 +74,8 @@ export function createCraneScene(
     blobShadows,
     ambientTraffic,
     yardDressing,
+    yardGates,
+    dustPuffs,
+    craneParts: parts,
   };
 }

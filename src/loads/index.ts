@@ -6,4 +6,5 @@ export {
   ATTACH_HORIZONTAL_MAX,
   PAD_PLACE_MARGIN,
   type LoadManager,
+  type DustSpawnFn,
 } from "./loadManager";

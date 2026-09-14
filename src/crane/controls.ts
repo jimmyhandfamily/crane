@@ -22,6 +22,8 @@ const buttonHeld: HeldAxes = { slew: 0, trolley: 0, hoist: 0 };
 
 /** Edge-triggered grab/release requests consumed by the game loop. */
 let grabQueued = false;
+/** Edge-triggered cab / orbit camera toggle (key C). */
+let cabQueued = false;
 
 function codeToAxis(code: string): { axis: Axis; dir: number } | null {
   switch (code) {
@@ -86,6 +88,13 @@ export function queueGrabPress(): void {
   grabQueued = true;
 }
 
+/** Consume a pending cab-camera toggle (C). */
+export function consumeCabToggle(): boolean {
+  if (!cabQueued) return false;
+  cabQueued = false;
+  return true;
+}
+
 function bindHoldButton(el: HTMLElement, axis: Axis, dir: number): void {
   const press = (e: Event) => {
     e.preventDefault();
@@ -132,6 +141,13 @@ export function initCraneControls(): void {
       return;
     }
 
+    // C = cab / orbit camera toggle
+    if (e.code === "KeyC") {
+      e.preventDefault();
+      cabQueued = true;
+      return;
+    }
+
     if (!codeToAxis(e.code)) return;
     keysDown.add(e.code);
     refreshKeyboardAxes();
@@ -150,6 +166,7 @@ export function initCraneControls(): void {
     buttonHeld.trolley = 0;
     buttonHeld.hoist = 0;
     grabQueued = false;
+    cabQueued = false;
     document
       .querySelectorAll("#crane-pad .pad-btn.active")
       .forEach((b) => b.classList.remove("active"));

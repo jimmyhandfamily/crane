@@ -1,15 +1,17 @@
 import { WebGLRenderer, Clock, SRGBColorSpace, Vector3 } from "three";
 import { createCraneScene } from "./scene/createScene";
-import { initHud, setLoadMeter, setPayTease, setTitle } from "./ui/hud";
+import { initHud, setLoadMeter, setPayTease, setRole, setTitle } from "./ui/hud";
 import { getCareerState } from "./career/careerStub";
 import {
   initCraneControls,
   getCraneInput,
   consumeGrabPress,
+  consumeCabToggle,
   HOOK_EMPTY_MASS_KG,
   SWAY_WARN_ANGLE,
 } from "./crane";
 import { ATTACH_DISTANCE } from "./loads";
+import { createCabCameraToggle } from "./camera/cabCamera";
 
 function syncGrabButton(attached: boolean): void {
   const btn = document.getElementById("btn-grab");
@@ -36,6 +38,10 @@ function syncLoadMass(
   setLoadMeter(kg, swingHigh);
 }
 
+function rankLabel(rank: string): string {
+  return rank === "Junior" ? "Junior Operator" : rank;
+}
+
 function boot(): void {
   const canvas = document.getElementById("renderCanvas");
   if (!(canvas instanceof HTMLCanvasElement)) {
@@ -51,7 +57,7 @@ function boot(): void {
 
   initHud({
     title: career.title,
-    role: career.rank,
+    role: rankLabel(career.rank),
     objective,
     showPayTease: true,
   });
@@ -63,11 +69,12 @@ function boot(): void {
       : "Pay unlocks later — stub";
   setPayTease(career.dayRate, payStub);
   setTitle(career.title);
+  setRole(rankLabel(career.rank));
 
   const hintEl = document.getElementById("hud-hint");
   if (hintEl) {
     hintEl.textContent =
-      "A/D slew · W/S trolley · R/F hoist · Space grab/release · Drag orbit · Scroll zoom";
+      "A/D slew · W/S trolley · R/F hoist · Space grab/release · C cab cam · Drag orbit · Scroll zoom";
   }
 
   initCraneControls();
@@ -91,7 +98,12 @@ function boot(): void {
     blobShadows,
     ambientTraffic,
     yardDressing,
+    yardGates,
+    dustPuffs,
+    craneParts,
   } = createCraneScene(renderer, canvas);
+
+  const cabCam = createCabCameraToggle(camera, controls, craneParts);
 
   syncLoadMass(crane, loads);
 
@@ -120,6 +132,9 @@ function boot(): void {
       syncGrabButton(loads.attached !== null);
       syncLoadMass(crane, loads);
     }
+    if (consumeCabToggle()) {
+      cabCam.toggle();
+    }
     loads.update(crane.parts, crane.physics);
     // Swing warning each frame while loaded
     const kg = loads.attached?.massKg ?? 0;
@@ -129,8 +144,13 @@ function boot(): void {
 
     blobShadows.update(crane.parts, loads);
     ambientTraffic.update(dt);
+    yardGates.update(ambientTraffic.getTruckPoses(), dt);
     yardDressing.update(dt);
-    controls.update();
+    dustPuffs.update(dt);
+    cabCam.update();
+    if (!cabCam.isCab()) {
+      controls.update();
+    }
     renderer.render(scene, camera);
   }
   frame();
@@ -144,7 +164,7 @@ function boot(): void {
   });
 
   console.info(
-    `[Crane] Three.js ready — attach≤${ATTACH_DISTANCE}m, persist+L2+swing+magnet+sky, rank=${career.rank}, L1=${career.lesson1Complete}, L2=${career.lesson2Complete}`
+    `[Crane] Three.js ready — attach≤${ATTACH_DISTANCE}m, cab+gates+excavator+dust+junior, rank=${career.rank}, L1=${career.lesson1Complete}, L2=${career.lesson2Complete}`
   );
 }
 

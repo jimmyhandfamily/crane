@@ -26,9 +26,18 @@ interface AmbientTruck {
   phase: "wait" | "drive" | "pause" | "exit";
 }
 
+export interface AmbientTruckPose {
+  x: number;
+  z: number;
+  visible: boolean;
+  kind: TruckKind;
+}
+
 export interface AmbientTraffic {
   root: Object3D;
   update(dt: number): void;
+  /** World XZ of active (or waiting-offmap) trucks for gate proximity. */
+  getTruckPoses(): AmbientTruckPose[];
 }
 
 const EDGE_PATH: Waypoint[] = [
@@ -429,5 +438,13 @@ export function createAmbientTraffic(
     }
   };
 
-  return { root, update };
+  const getTruckPoses = (): AmbientTruckPose[] =>
+    trucks.map((t) => ({
+      x: t.root.position.x,
+      z: t.root.position.z,
+      visible: t.root.visible && t.phase !== "wait",
+      kind: t.kind,
+    }));
+
+  return { root, update, getTruckPoses };
 }

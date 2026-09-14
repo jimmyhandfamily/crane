@@ -51,6 +51,11 @@ export function setTitle(text: string): void {
   if (el) el.textContent = text;
 }
 
+export function setRole(text: string): void {
+  const el = document.querySelector("#hud-title .role");
+  if (el) el.textContent = text;
+}
+
 export function setObjective(text: string): void {
   const el = document.querySelector("#hud-objective .text");
   if (el) el.textContent = text;
