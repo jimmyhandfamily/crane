@@ -1,4 +1,4 @@
-import { Engine } from "@babylonjs/core";
+import { WebGLRenderer, Clock, SRGBColorSpace } from "three";
 import { createCraneScene } from "./scene/createScene";
 import { initHud, setLoadMeter } from "./ui/hud";
 import { getCareerState, getPayTeaseLabel } from "./career/careerStub";
@@ -57,25 +57,34 @@ function boot(): void {
   initCraneControls();
   syncGrabButton(false);
 
-  const engine = new Engine(canvas, true, {
-    preserveDrawingBuffer: true,
-    stencil: true,
-    adaptToDeviceRatio: true,
+  const renderer = new WebGLRenderer({
+    canvas,
+    antialias: true,
+    alpha: false,
   });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputColorSpace = SRGBColorSpace;
 
   const {
     scene,
+    camera,
+    controls,
     crane,
     loads,
     blobShadows,
     ambientTraffic,
     yardDressing,
-  } = createCraneScene(engine, canvas);
+  } = createCraneScene(renderer, canvas);
 
   syncLoadMass(crane, loads);
 
-  engine.runRenderLoop(() => {
-    const dt = engine.getDeltaTime() / 1000;
+  const clock = new Clock();
+
+  function frame(): void {
+    requestAnimationFrame(frame);
+    const dt = Math.min(clock.getDelta(), 0.1);
+
     crane.applyInput(getCraneInput(), dt);
     if (consumeGrabPress()) {
       loads.tryToggleGrab(crane.parts);
@@ -86,15 +95,21 @@ function boot(): void {
     blobShadows.update(crane.parts, loads);
     ambientTraffic.update(dt);
     yardDressing.update(dt);
-    scene.render();
-  });
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  frame();
 
   window.addEventListener("resize", () => {
-    engine.resize();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / Math.max(h, 1);
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
   });
 
   console.info(
-    `[Crane] Grab/place ready — attach≤${ATTACH_DISTANCE}m, sway physics + load meter, ambient traffic + workers, rank=${career.rank}`
+    `[Crane] Three.js grab/place ready — attach≤${ATTACH_DISTANCE}m, mild sway + load meter, ambient traffic + workers, rank=${career.rank}`
   );
 }
 

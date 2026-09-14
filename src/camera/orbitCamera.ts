@@ -1,8 +1,5 @@
-import {
-  ArcRotateCamera,
-  Scene,
-  Vector3,
-} from "@babylonjs/core";
+import { PerspectiveCamera, Vector3 } from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   CAMERA_BETA,
   CAMERA_BETA_MAX,
@@ -13,42 +10,41 @@ import {
 } from "../config/units";
 
 /**
- * ArcRotateCamera: ~60° look-down (beta ≈ π/3),
- * orbit + zoom only, start radius ~80–120, clamped high.
+ * OrbitControls ≈ ArcRotateCamera: ~60° look-down, orbit + zoom only.
  */
 export function createOrbitCamera(
-  scene: Scene,
   canvas: HTMLCanvasElement
-): ArcRotateCamera {
-  const target = new Vector3(0, 12, 0); // aim at mid-mast
+): { camera: PerspectiveCamera; controls: OrbitControls } {
+  const camera = new PerspectiveCamera(
+    45,
+    canvas.clientWidth / Math.max(canvas.clientHeight, 1),
+    0.5,
+    500
+  );
+  camera.name = "OrbitCam";
 
-  const camera = new ArcRotateCamera(
-    "OrbitCam",
-    -Math.PI / 4, // alpha — nice 3/4 view
-    CAMERA_BETA, // beta ≈ π/3 (~60° from vertical / look-down)
-    CAMERA_START_RADIUS,
-    target,
-    scene
+  const target = new Vector3(0, 12, 0);
+  const alpha = -Math.PI / 4;
+  const beta = CAMERA_BETA;
+  const r = CAMERA_START_RADIUS;
+  camera.position.set(
+    target.x + r * Math.sin(beta) * Math.sin(alpha),
+    target.y + r * Math.cos(beta),
+    target.z + r * Math.sin(beta) * Math.cos(alpha)
   );
 
-  camera.attachControl(canvas, true);
+  const controls = new OrbitControls(camera, canvas);
+  controls.target.copy(target);
+  controls.enablePan = false;
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minPolarAngle = CAMERA_BETA_MIN;
+  controls.maxPolarAngle = CAMERA_BETA_MAX;
+  controls.minDistance = CAMERA_RADIUS_MIN;
+  controls.maxDistance = CAMERA_RADIUS_MAX;
+  controls.rotateSpeed = 0.6;
+  controls.zoomSpeed = 0.9;
+  controls.update();
 
-  // Orbit + zoom only — disable panning
-  camera.panningSensibility = 0;
-  camera.allowUpsideDown = false;
-
-  // Keep camera high / sensible zoom
-  camera.lowerBetaLimit = CAMERA_BETA_MIN;
-  camera.upperBetaLimit = CAMERA_BETA_MAX;
-  camera.lowerRadiusLimit = CAMERA_RADIUS_MIN;
-  camera.upperRadiusLimit = CAMERA_RADIUS_MAX;
-
-  camera.wheelPrecision = 20;
-  camera.angularSensibilityX = 2000;
-  camera.angularSensibilityY = 2000;
-
-  camera.minZ = 0.5;
-  camera.maxZ = 500;
-
-  return camera;
+  return { camera, controls };
 }

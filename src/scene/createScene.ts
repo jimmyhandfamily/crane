@@ -1,9 +1,11 @@
 import {
-  Color3,
-  Color4,
-  Engine,
+  Color,
+  FogExp2,
+  PerspectiveCamera,
   Scene,
-} from "@babylonjs/core";
+  WebGLRenderer,
+} from "three";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { Palette } from "../config/palette";
 import { createOrbitCamera } from "../camera/orbitCamera";
 import {
@@ -22,7 +24,9 @@ import { createYardDressing, type YardDressing } from "./yardDressing";
 
 export interface CraneScene {
   scene: Scene;
-  engine: Engine;
+  renderer: WebGLRenderer;
+  camera: PerspectiveCamera;
+  controls: OrbitControls;
   crane: CraneController;
   loads: LoadManager;
   blobShadows: BlobShadows;
@@ -31,35 +35,31 @@ export interface CraneScene {
 }
 
 export function createCraneScene(
-  engine: Engine,
+  renderer: WebGLRenderer,
   canvas: HTMLCanvasElement
 ): CraneScene {
-  const scene = new Scene(engine);
-  scene.clearColor = Color4.FromColor3(
-    Color3.FromHexString(Palette.sky),
-    1
-  );
-  scene.ambientColor = Color3.FromHexString(Palette.haze).scale(0.35);
-  scene.fogMode = Scene.FOGMODE_EXP2;
-  scene.fogDensity = 0.004;
-  scene.fogColor = Color3.FromHexString(Palette.haze);
+  const scene = new Scene();
+  scene.background = new Color(Palette.sky);
+  scene.fog = new FogExp2(Palette.haze, 0.004);
 
   createLights(scene);
-  createOrbitCamera(scene, canvas);
+  const { camera, controls } = createOrbitCamera(canvas);
 
-  const mats = createSharedMaterials(scene);
+  const mats = createSharedMaterials();
   createGround(scene, mats);
   const parts = createPlaceholderCrane(scene, mats);
   const crane = createCraneController(parts);
-  const { loads: loadItems, pads } = createProps(scene, mats);
-  const loads = createLoadManager(loadItems, pads);
+  const { loads: loadItems, pads, root: propsRoot } = createProps(scene, mats);
+  const loads = createLoadManager(loadItems, pads, propsRoot);
   const blobShadows = createBlobShadows(scene);
   const ambientTraffic = createAmbientTraffic(scene, mats);
   const yardDressing = createYardDressing(scene, mats);
 
   return {
     scene,
-    engine,
+    renderer,
+    camera,
+    controls,
     crane,
     loads,
     blobShadows,

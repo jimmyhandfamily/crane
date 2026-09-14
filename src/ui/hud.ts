@@ -2,7 +2,8 @@
  * HTML HUD overlay controller.
  * Markup lives in index.html; this module wires copy and optional stubs.
  *
- * Load meter: visual only. Sound cue for overload / settle — future only.
+ * Objective sits under the rank card (top-left) — slim, low opacity.
+ * Load meter: visual only. Sound cue — future only.
  */
 
 import {
@@ -41,7 +42,6 @@ export function initHud(options: HudOptions = {}): void {
     payEl.style.display = opts.showPayTease ? "" : "none";
   }
 
-  // Ensure load meter starts empty
   setLoadMeter(0);
 }
 
@@ -50,10 +50,6 @@ export function setObjective(text: string): void {
   if (el) el.textContent = text;
 }
 
-/**
- * Update on-screen load meter from attached mass (kg).
- * Bands: empty / light / heavy. No audio (stub for future beep).
- */
 export function setLoadMeter(loadMassKg: number): void {
   const root = document.getElementById("hud-load");
   if (!root) return;
@@ -78,6 +74,4 @@ export function setLoadMeter(loadMassKg: number): void {
     value.textContent =
       loadMassKg <= 0 ? "0 kg" : `${Math.round(loadMassKg)} kg`;
   }
-
-  // Future: play soft click / strain beep when band changes — no sound yet.
 }

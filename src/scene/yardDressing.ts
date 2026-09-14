@@ -1,28 +1,29 @@
 import {
-  Color3,
-  MeshBuilder,
+  Color,
+  MeshBasicMaterial,
+  Object3D,
   Scene,
-  StandardMaterial,
-  TransformNode,
   Vector3,
-} from "@babylonjs/core";
+} from "three";
 import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
+import type { MeshStandardMaterial } from "three";
+import { box, cyl, disc, ellipsoid, group, sphere } from "./meshHelpers";
 
 interface WorkerLimbs {
-  hips: TransformNode;
-  thighL: TransformNode;
-  thighR: TransformNode;
-  shinL: TransformNode;
-  shinR: TransformNode;
-  armL: TransformNode;
-  armR: TransformNode;
+  hips: Object3D;
+  thighL: Object3D;
+  thighR: Object3D;
+  shinL: Object3D;
+  shinR: Object3D;
+  armL: Object3D;
+  armR: Object3D;
   baseHipY: number;
   walkTime: number;
 }
 
 interface WalkLoop {
-  root: TransformNode;
+  root: Object3D;
   limbs: WorkerLimbs;
   waypoints: Vector3[];
   segment: number;
@@ -32,83 +33,60 @@ interface WalkLoop {
 }
 
 export interface YardDressing {
-  root: TransformNode;
+  root: Object3D;
   update(dt: number): void;
 }
 
 function createBerm(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
-  parent: TransformNode,
+  parent: Object3D,
   x: number,
   z: number,
-  /** Peak height in meters (0.4–1.2). */
   height: number
 ): void {
-  const berm = new TransformNode(name, scene);
-  berm.parent = parent;
-  berm.position = new Vector3(x, 0, z);
+  const berm = group(name, parent);
+  berm.position.set(x, 0, z);
   berm.rotation.y = Math.random() * Math.PI * 2;
 
   const h = Math.min(1.2, Math.max(0.4, height));
   const span = 3.2 + h * 2.2;
 
-  const main = MeshBuilder.CreateSphere(
-    `${name}_Main`,
-    {
-      diameterX: span,
-      diameterY: h * 2,
-      diameterZ: span * 0.78,
-      segments: 8,
-    },
-    scene
-  );
+  const main = ellipsoid(`${name}_Main`, span, h * 2, span * 0.78, mats.berm, berm, 8);
   main.position.y = h * 0.55;
-  main.material = mats.berm;
-  main.parent = berm;
 
-  const lump = MeshBuilder.CreateSphere(
+  const lump = ellipsoid(
     `${name}_Lump`,
-    {
-      diameterX: span * 0.55,
-      diameterY: h * 1.15,
-      diameterZ: span * 0.48,
-      segments: 6,
-    },
-    scene
+    span * 0.55,
+    h * 1.15,
+    span * 0.48,
+    mats.bermDark,
+    berm,
+    6
   );
-  lump.position = new Vector3(span * 0.22, h * 0.35, -span * 0.12);
-  lump.material = mats.bermDark;
-  lump.parent = berm;
+  lump.position.set(span * 0.22, h * 0.35, -span * 0.12);
 
-  const lump2 = MeshBuilder.CreateSphere(
+  const lump2 = ellipsoid(
     `${name}_Lump2`,
-    {
-      diameterX: span * 0.42,
-      diameterY: h * 0.95,
-      diameterZ: span * 0.4,
-      segments: 6,
-    },
-    scene
+    span * 0.42,
+    h * 0.95,
+    span * 0.4,
+    mats.bermDark,
+    berm,
+    6
   );
-  lump2.position = new Vector3(-span * 0.2, h * 0.28, span * 0.14);
-  lump2.material = mats.bermDark;
-  lump2.parent = berm;
+  lump2.position.set(-span * 0.2, h * 0.28, span * 0.14);
 }
 
-function makeWorkerShadowMat(scene: Scene): StandardMaterial {
-  const mat = new StandardMaterial("matWorkerBlobShadow", scene);
-  mat.diffuseColor = new Color3(0.08, 0.06, 0.05);
-  mat.specularColor = Color3.Black();
-  mat.emissiveColor = Color3.Black();
-  mat.ambientColor = Color3.Black();
-  mat.alpha = 0.38;
-  mat.transparencyMode = StandardMaterial.MATERIAL_ALPHABLEND;
-  mat.disableLighting = true;
-  mat.backFaceCulling = false;
-  mat.zOffset = -1;
-  return mat;
+function makeWorkerShadowMat(): MeshBasicMaterial {
+  return new MeshBasicMaterial({
+    name: "matWorkerBlobShadow",
+    color: new Color(0.08, 0.06, 0.05),
+    transparent: true,
+    opacity: 0.38,
+    depthWrite: false,
+    toneMapped: false,
+  });
 }
 
 type WorkerVariant = "A" | "B" | "C";
@@ -117,8 +95,8 @@ function variantMats(
   variant: WorkerVariant,
   mats: SharedMaterials
 ): {
-  coveralls: StandardMaterial;
-  hardhat: StandardMaterial;
+  coveralls: MeshStandardMaterial;
+  hardhat: MeshStandardMaterial;
   withVest: boolean;
 } {
   switch (variant) {
@@ -143,228 +121,87 @@ function variantMats(
   }
 }
 
-/**
- * Articulated hardhat worker ~1.75–1.85 m.
- * Hierarchy: WorkerRoot → Hips → Torso/Head/Hat; Hips → LegL/R; Torso → ArmL/R.
- */
 function createWorker(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
   variant: WorkerVariant,
-  shadowMat: StandardMaterial,
+  shadowMat: MeshBasicMaterial,
   shadowDiam: number
-): { root: TransformNode; limbs: WorkerLimbs } {
+): { root: Object3D; limbs: WorkerLimbs } {
   const { coveralls, hardhat, withVest } = variantMats(variant, mats);
-  const root = new TransformNode(name, scene);
+  const root = group(name);
 
-  // Blob shadow under feet (Ø 0.9–1.1)
-  const shadow = MeshBuilder.CreateDisc(
-    `${name}_Shadow`,
-    { radius: 0.5, tessellation: 24 },
-    scene
-  );
-  shadow.rotation.x = Math.PI / 2;
+  const shadow = disc(`${name}_Shadow`, 0.5, shadowMat, root, 24);
   shadow.position.y = 0.025;
-  shadow.scaling.set(shadowDiam, shadowDiam, 1);
-  shadow.material = shadowMat;
-  shadow.isPickable = false;
-  shadow.parent = root;
+  shadow.scale.set(shadowDiam, shadowDiam, 1);
 
-  const hips = new TransformNode(`${name}_Hips`, scene);
-  hips.parent = root;
+  const hips = group(`${name}_Hips`, root);
   const baseHipY = 0.92;
   hips.position.y = baseHipY;
 
-  // Pelvis 0.42 × 0.28 × 0.28
-  const pelvis = MeshBuilder.CreateBox(
-    `${name}_Pelvis`,
-    { width: 0.42, height: 0.28, depth: 0.28 },
-    scene
-  );
-  pelvis.position.y = 0;
-  pelvis.material = coveralls;
-  pelvis.parent = hips;
+  box(`${name}_Pelvis`, 0.42, 0.28, 0.28, coveralls, hips);
 
-  const torso = new TransformNode(`${name}_Torso`, scene);
-  torso.parent = hips;
-  torso.position.y = 0.14 + 0.22; // slight overlap with pelvis for ~1.8 m height
+  const torso = group(`${name}_Torso`, hips);
+  torso.position.y = 0.14 + 0.22;
 
-  // Torso 0.48 × 0.55 × 0.28
-  const torsoMesh = MeshBuilder.CreateBox(
-    `${name}_TorsoMesh`,
-    { width: 0.48, height: 0.55, depth: 0.28 },
-    scene
-  );
-  torsoMesh.material = coveralls;
-  torsoMesh.parent = torso;
+  box(`${name}_TorsoMesh`, 0.48, 0.55, 0.28, coveralls, torso);
 
   if (withVest) {
-    const vest = MeshBuilder.CreateBox(
-      `${name}_Vest`,
-      { width: 0.5, height: 0.42, depth: 0.1 },
-      scene
-    );
-    vest.position = new Vector3(0, 0.02, 0.16);
-    vest.material = mats.vest;
-    vest.parent = torso;
+    const vest = box(`${name}_Vest`, 0.5, 0.42, 0.1, mats.vest, torso);
+    vest.position.set(0, 0.02, 0.16);
   }
 
-  // Head sphere Ø0.28
-  const head = MeshBuilder.CreateSphere(
-    `${name}_Head`,
-    { diameter: 0.28, segments: 8 },
-    scene
-  );
-  head.position.y = 0.22 + 0.02 + 0.14; // torso half + neck + radius
-  head.material = mats.skin;
-  head.parent = torso;
+  const head = sphere(`${name}_Head`, 0.14, mats.skin, torso, 8);
+  head.position.y = 0.22 + 0.02 + 0.14;
 
-  // Hardhat dome + brim
-  const hat = MeshBuilder.CreateSphere(
-    `${name}_Hardhat`,
-    { diameterX: 0.36, diameterY: 0.18, diameterZ: 0.36, segments: 8 },
-    scene
-  );
+  const hat = ellipsoid(`${name}_Hardhat`, 0.36, 0.18, 0.36, hardhat, torso, 8);
   hat.position.y = head.position.y + 0.1;
-  hat.material = hardhat;
-  hat.parent = torso;
 
-  const brim = MeshBuilder.CreateCylinder(
-    `${name}_HatBrim`,
-    { height: 0.04, diameter: 0.42, tessellation: 12 },
-    scene
-  );
+  const brim = cyl(`${name}_HatBrim`, 0.21, 0.21, 0.04, hardhat, torso, 12);
   brim.position.y = head.position.y + 0.04;
-  brim.material = hardhat;
-  brim.parent = torso;
 
-  // Arms — pivot at shoulder; upper + forearm
   const shoulderY = 0.2;
   const shoulderX = 0.3;
 
-  const armL = new TransformNode(`${name}_ArmL`, scene);
-  armL.parent = torso;
-  armL.position = new Vector3(-shoulderX, shoulderY, 0);
-
-  const upperL = MeshBuilder.CreateBox(
-    `${name}_UpperArmL`,
-    { width: 0.11, height: 0.3, depth: 0.11 },
-    scene
-  );
+  const armL = group(`${name}_ArmL`, torso);
+  armL.position.set(-shoulderX, shoulderY, 0);
+  const upperL = box(`${name}_UpperArmL`, 0.11, 0.3, 0.11, coveralls, armL);
   upperL.position.y = -0.15;
-  upperL.material = coveralls;
-  upperL.parent = armL;
-
-  const foreL = MeshBuilder.CreateBox(
-    `${name}_ForeArmL`,
-    { width: 0.1, height: 0.28, depth: 0.1 },
-    scene
-  );
+  const foreL = box(`${name}_ForeArmL`, 0.1, 0.28, 0.1, mats.skin, armL);
   foreL.position.y = -0.42;
-  foreL.material = mats.skin;
-  foreL.parent = armL;
 
-  const armR = new TransformNode(`${name}_ArmR`, scene);
-  armR.parent = torso;
-  armR.position = new Vector3(shoulderX, shoulderY, 0);
-
-  const upperR = MeshBuilder.CreateBox(
-    `${name}_UpperArmR`,
-    { width: 0.11, height: 0.3, depth: 0.11 },
-    scene
-  );
+  const armR = group(`${name}_ArmR`, torso);
+  armR.position.set(shoulderX, shoulderY, 0);
+  const upperR = box(`${name}_UpperArmR`, 0.11, 0.3, 0.11, coveralls, armR);
   upperR.position.y = -0.15;
-  upperR.material = coveralls;
-  upperR.parent = armR;
-
-  const foreR = MeshBuilder.CreateBox(
-    `${name}_ForeArmR`,
-    { width: 0.1, height: 0.28, depth: 0.1 },
-    scene
-  );
+  const foreR = box(`${name}_ForeArmR`, 0.1, 0.28, 0.1, mats.skin, armR);
   foreR.position.y = -0.42;
-  foreR.material = mats.skin;
-  foreR.parent = armR;
 
-  // Legs — thigh + shin + boot; pivots at hip / knee
   const hipX = 0.12;
 
-  const legL = new TransformNode(`${name}_LegL`, scene);
-  legL.parent = hips;
-  legL.position = new Vector3(-hipX, -0.14, 0);
-
-  const thighL = new TransformNode(`${name}_ThighL`, scene);
-  thighL.parent = legL;
-
-  const thighLMesh = MeshBuilder.CreateBox(
-    `${name}_ThighLMesh`,
-    { width: 0.15, height: 0.38, depth: 0.15 },
-    scene
-  );
+  const legL = group(`${name}_LegL`, hips);
+  legL.position.set(-hipX, -0.14, 0);
+  const thighL = group(`${name}_ThighL`, legL);
+  const thighLMesh = box(`${name}_ThighLMesh`, 0.15, 0.38, 0.15, coveralls, thighL);
   thighLMesh.position.y = -0.19;
-  thighLMesh.material = coveralls;
-  thighLMesh.parent = thighL;
-
-  const shinL = new TransformNode(`${name}_ShinL`, scene);
-  shinL.parent = thighL;
+  const shinL = group(`${name}_ShinL`, thighL);
   shinL.position.y = -0.38;
-
-  const shinLMesh = MeshBuilder.CreateBox(
-    `${name}_ShinLMesh`,
-    { width: 0.13, height: 0.34, depth: 0.13 },
-    scene
-  );
+  const shinLMesh = box(`${name}_ShinLMesh`, 0.13, 0.34, 0.13, coveralls, shinL);
   shinLMesh.position.y = -0.17;
-  shinLMesh.material = coveralls;
-  shinLMesh.parent = shinL;
+  const bootL = box(`${name}_BootL`, 0.16, 0.12, 0.26, mats.boots, shinL);
+  bootL.position.set(0, -0.38, 0.04);
 
-  const bootL = MeshBuilder.CreateBox(
-    `${name}_BootL`,
-    { width: 0.16, height: 0.12, depth: 0.26 },
-    scene
-  );
-  bootL.position = new Vector3(0, -0.38, 0.04);
-  bootL.material = mats.boots;
-  bootL.parent = shinL;
-
-  const legR = new TransformNode(`${name}_LegR`, scene);
-  legR.parent = hips;
-  legR.position = new Vector3(hipX, -0.14, 0);
-
-  const thighR = new TransformNode(`${name}_ThighR`, scene);
-  thighR.parent = legR;
-
-  const thighRMesh = MeshBuilder.CreateBox(
-    `${name}_ThighRMesh`,
-    { width: 0.15, height: 0.38, depth: 0.15 },
-    scene
-  );
+  const legR = group(`${name}_LegR`, hips);
+  legR.position.set(hipX, -0.14, 0);
+  const thighR = group(`${name}_ThighR`, legR);
+  const thighRMesh = box(`${name}_ThighRMesh`, 0.15, 0.38, 0.15, coveralls, thighR);
   thighRMesh.position.y = -0.19;
-  thighRMesh.material = coveralls;
-  thighRMesh.parent = thighR;
-
-  const shinR = new TransformNode(`${name}_ShinR`, scene);
-  shinR.parent = thighR;
+  const shinR = group(`${name}_ShinR`, thighR);
   shinR.position.y = -0.38;
-
-  const shinRMesh = MeshBuilder.CreateBox(
-    `${name}_ShinRMesh`,
-    { width: 0.13, height: 0.34, depth: 0.13 },
-    scene
-  );
+  const shinRMesh = box(`${name}_ShinRMesh`, 0.13, 0.34, 0.13, coveralls, shinR);
   shinRMesh.position.y = -0.17;
-  shinRMesh.material = coveralls;
-  shinRMesh.parent = shinR;
-
-  const bootR = MeshBuilder.CreateBox(
-    `${name}_BootR`,
-    { width: 0.16, height: 0.12, depth: 0.26 },
-    scene
-  );
-  bootR.position = new Vector3(0, -0.38, 0.04);
-  bootR.material = mats.boots;
-  bootR.parent = shinR;
+  const bootR = box(`${name}_BootR`, 0.16, 0.12, 0.26, mats.boots, shinR);
+  bootR.position.set(0, -0.38, 0.04);
 
   return {
     root,
@@ -383,9 +220,7 @@ function createWorker(
 }
 
 function applyWalkPose(limbs: WorkerLimbs, moving: boolean, dt: number): void {
-  if (moving) {
-    limbs.walkTime += dt;
-  }
+  if (moving) limbs.walkTime += dt;
   const phase = limbs.walkTime * 7;
   const sin = Math.sin(phase);
   const sinOpp = Math.sin(phase + Math.PI);
@@ -394,7 +229,6 @@ function applyWalkPose(limbs: WorkerLimbs, moving: boolean, dt: number): void {
   limbs.thighR.rotation.x = sinOpp * 0.45;
   limbs.shinL.rotation.x = Math.max(0, -sin) * 0.35;
   limbs.shinR.rotation.x = Math.max(0, -sinOpp) * 0.35;
-  // Arms opposite to thighs
   limbs.armL.rotation.x = sinOpp * 0.45;
   limbs.armR.rotation.x = sin * 0.45;
 
@@ -402,24 +236,20 @@ function applyWalkPose(limbs: WorkerLimbs, moving: boolean, dt: number): void {
   limbs.hips.position.y = limbs.baseHipY + bob;
 }
 
-/**
- * Dirt berms (0.4–1.2 m) + kinematic articulated hardhat workers on edge walk loops.
- * Stay clear of crane center / Pad A–B work. No berms inside ~25 m of CraneRoot.
- */
 export function createYardDressing(
   scene: Scene,
   mats: SharedMaterials
 ): YardDressing {
-  const root = new TransformNode("YardDressingRoot", scene);
+  const root = group("YardDressingRoot");
+  scene.add(root);
   const half = YARD_SIZE / 2 - 6;
-  const shadowMat = makeWorkerShadowMat(scene);
+  const shadowMat = makeWorkerShadowMat();
 
-  // Berms near fence corners / edges — heights 0.4–1.2 m, outside work pads
-  createBerm("DirtBerm1", scene, mats, root, half - 4, half - 8, 1.15);
-  createBerm("DirtBerm2", scene, mats, root, -half + 6, -half + 10, 0.95);
-  createBerm("DirtBerm3", scene, mats, root, half - 10, -half + 6, 0.7);
-  createBerm("DirtBerm4", scene, mats, root, 28, 32, 0.55);
-  createBerm("DirtBerm5", scene, mats, root, -8, -half + 5, 1.05);
+  createBerm("DirtBerm1", mats, root, half - 4, half - 8, 1.15);
+  createBerm("DirtBerm2", mats, root, -half + 6, -half + 10, 0.95);
+  createBerm("DirtBerm3", mats, root, half - 10, -half + 6, 0.7);
+  createBerm("DirtBerm4", mats, root, 28, 32, 0.55);
+  createBerm("DirtBerm5", mats, root, -8, -half + 5, 1.05);
 
   const workerDefs: {
     name: string;
@@ -486,15 +316,14 @@ export function createYardDressing(
   const loops: WalkLoop[] = workerDefs.map((def) => {
     const { root: worker, limbs } = createWorker(
       def.name,
-      scene,
       mats,
       def.variant,
       shadowMat,
       def.shadowDiam
     );
-    worker.parent = root;
+    root.add(worker);
     const start = def.waypoints[0]!;
-    worker.position.copyFrom(start);
+    worker.position.copy(start);
     return {
       root: worker,
       limbs,
@@ -516,7 +345,7 @@ export function createYardDressing(
 
       const a = loop.waypoints[loop.segment]!;
       const b = loop.waypoints[(loop.segment + 1) % loop.waypoints.length]!;
-      const segLen = Vector3.Distance(a, b);
+      const segLen = a.distanceTo(b);
       const step = segLen > 0.01 ? (loop.speed * dt) / segLen : 1;
       loop.u += step;
 
@@ -530,8 +359,7 @@ export function createYardDressing(
         continue;
       }
 
-      const pos = Vector3.Lerp(a, b, loop.u);
-      loop.root.position.copyFrom(pos);
+      loop.root.position.lerpVectors(a, b, loop.u);
       const dx = b.x - a.x;
       const dz = b.z - a.z;
       if (dx * dx + dz * dz > 0.001) {

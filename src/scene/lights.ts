@@ -1,31 +1,31 @@
 import {
-  Color3,
+  AmbientLight,
+  Color,
   DirectionalLight,
-  HemisphericLight,
+  HemisphereLight,
   Scene,
-  Vector3,
-} from "@babylonjs/core";
+} from "three";
 import { Palette } from "../config/palette";
 
-/** Soft hemisphere + warm directional — REALISM REFINE intensities / sun dir. */
+/** Soft hemisphere + warm directional. */
 export function createLights(scene: Scene): void {
-  const hemi = new HemisphericLight(
-    "HemiSky",
-    new Vector3(0, 1, 0),
-    scene
+  const hemi = new HemisphereLight(
+    new Color(Palette.haze),
+    new Color(Palette.dirt).multiplyScalar(0.45),
+    0.7
   );
-  hemi.intensity = 0.7;
-  hemi.diffuse = Color3.FromHexString(Palette.haze);
-  hemi.groundColor = Color3.FromHexString(Palette.dirt).scale(0.45);
-  hemi.specular = Color3.Black();
+  hemi.name = "HemiSky";
+  hemi.position.set(0, 1, 0);
+  scene.add(hemi);
 
-  const sun = new DirectionalLight(
-    "WarmSun",
-    new Vector3(-0.55, -0.75, -0.35),
-    scene
-  );
-  sun.position = new Vector3(40, 80, 30);
-  sun.intensity = 1.05;
-  sun.diffuse = Color3.FromHexString(Palette.warmSun);
-  sun.specular = Color3.FromHexString("#FFE8C0").scale(0.4);
+  const ambient = new AmbientLight(new Color(Palette.haze), 0.25);
+  ambient.name = "AmbientHaze";
+  scene.add(ambient);
+
+  const sun = new DirectionalLight(new Color(Palette.warmSun), 1.05);
+  sun.name = "WarmSun";
+  sun.position.set(40, 80, 30);
+  sun.target.position.set(0, 0, 0);
+  scene.add(sun);
+  scene.add(sun.target);
 }

@@ -2,7 +2,7 @@
   "name": "crane",
   "version": "0.0.1",
   "private": true,
-  "description": "Crane — Milestone 0 training yard (Vite + TypeScript + Babylon.js)",
+  "description": "Crane — training yard (Vite + TypeScript + Three.js)",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@babylonjs/core": "^9.26.1"
+    "three": "^0.186.0"
   },
   "devDependencies": {
+    "@types/three": "^0.186.0",
     "typescript": "~5.8.3",
     "vite": "^6.3.5"
   }

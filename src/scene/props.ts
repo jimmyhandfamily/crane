@@ -1,43 +1,28 @@
-import {
-  MeshBuilder,
-  Scene,
-  TransformNode,
-  Vector3,
-  Color3,
-  StandardMaterial,
-  Mesh,
-} from "@babylonjs/core";
+import { Object3D, Scene, Vector3 } from "three";
 import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
 import type { LoadItem, PadZone } from "../loads/types";
 import { CRATE_MASS_KG, BARREL_MASS_KG } from "../loads/types";
+import { box, cyl, group } from "./meshHelpers";
 
 export interface PropsResult {
-  root: TransformNode;
+  root: Object3D;
   loads: LoadItem[];
   pads: PadZone[];
 }
 
 function createConcretePad(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
-  parent: TransformNode,
+  parent: Object3D,
   x: number,
   z: number,
   size = 8
 ): PadZone {
-  const pad = MeshBuilder.CreateBox(
-    name,
-    { width: size, height: 0.15, depth: size },
-    scene
-  );
-  pad.position = new Vector3(x, 0.075, z);
-  pad.material = mats.concrete;
-  pad.parent = parent;
-  pad.receiveShadows = true;
+  const pad = box(name, size, 0.15, size, mats.concrete, parent);
+  pad.position.set(x, 0.075, z);
+  pad.receiveShadow = true;
 
-  // Flat pad lip frame (raised edge, pad top stays flat for hook shadows)
   const lipT = 0.28;
   const lipH = 0.1;
   const half = size / 2;
@@ -48,14 +33,8 @@ function createConcretePad(
     ["LipE", lipT, size, half + lipT / 2, 0],
     ["LipW", lipT, size, -(half + lipT / 2), 0],
   ] as const) {
-    const lip = MeshBuilder.CreateBox(
-      `${name}_${suffix}`,
-      { width: w, height: lipH, depth: d },
-      scene
-    );
-    lip.position = new Vector3(x + ox, lipY, z + oz);
-    lip.material = mats.concrete;
-    lip.parent = parent;
+    const lip = box(`${name}_${suffix}`, w, lipH, d, mats.concrete, parent);
+    lip.position.set(x + ox, lipY, z + oz);
   }
 
   return {
@@ -68,150 +47,80 @@ function createConcretePad(
 }
 
 function createShed(
-  scene: Scene,
   mats: SharedMaterials,
-  parent: TransformNode,
+  parent: Object3D,
   x: number,
   z: number
 ): void {
-  const shed = new TransformNode("SchoolShed", scene);
-  shed.parent = parent;
-  shed.position = new Vector3(x, 0, z);
+  const shed = group("SchoolShed", parent);
+  shed.position.set(x, 0, z);
 
-  const wall = MeshBuilder.CreateBox(
-    "ShedBody",
-    { width: 6, height: 3.2, depth: 4.5 },
-    scene
-  );
+  const wall = box("ShedBody", 6, 3.2, 4.5, mats.shedWall, shed);
   wall.position.y = 1.6;
-  wall.material = mats.shedWall;
-  wall.parent = shed;
 
-  // Door recess (front +Z)
-  const doorRecess = MeshBuilder.CreateBox(
-    "ShedDoorRecess",
-    { width: 1.5, height: 2.2, depth: 0.25 },
-    scene
-  );
-  doorRecess.position = new Vector3(0, 1.1, 2.2);
-  doorRecess.material = mats.shedDoor;
-  doorRecess.parent = shed;
+  const doorRecess = box("ShedDoorRecess", 1.5, 2.2, 0.25, mats.shedDoor, shed);
+  doorRecess.position.set(0, 1.1, 2.2);
 
-  const doorPanel = MeshBuilder.CreateBox(
-    "ShedDoorPanel",
-    { width: 1.25, height: 2.0, depth: 0.08 },
-    scene
-  );
-  doorPanel.position = new Vector3(0, 1.05, 2.28);
-  doorPanel.material = mats.shedDoor;
-  doorPanel.parent = shed;
+  const doorPanel = box("ShedDoorPanel", 1.25, 2.0, 0.08, mats.shedDoor, shed);
+  doorPanel.position.set(0, 1.05, 2.28);
 
-  // Window quads (side walls)
   for (const [wx, wz] of [
     [-3.05, 0.4],
     [-3.05, -0.9],
     [3.05, 0.4],
     [3.05, -0.9],
   ] as const) {
-    const frame = MeshBuilder.CreateBox(
+    const frame = box(
       `ShedWinFrame_${wx}_${wz}`,
-      { width: 0.12, height: 1.15, depth: 1.25 },
-      scene
+      0.12,
+      1.15,
+      1.25,
+      mats.shedRoof,
+      shed
     );
-    frame.position = new Vector3(wx, 1.85, wz);
-    frame.material = mats.shedRoof;
-    frame.parent = shed;
+    frame.position.set(wx, 1.85, wz);
 
-    const glass = MeshBuilder.CreateBox(
+    const glass = box(
       `ShedWinGlass_${wx}_${wz}`,
-      { width: 0.06, height: 0.95, depth: 1.05 },
-      scene
+      0.06,
+      0.95,
+      1.05,
+      mats.shedWindow,
+      shed
     );
-    glass.position = new Vector3(wx + Math.sign(wx) * 0.02, 1.85, wz);
-    glass.material = mats.shedWindow;
-    glass.parent = shed;
+    glass.position.set(wx + Math.sign(wx) * 0.02, 1.85, wz);
   }
 
-  // Roof with stronger overhang
-  const roofL = MeshBuilder.CreateBox(
-    "ShedRoofL",
-    { width: 7.0, height: 0.22, depth: 2.9 },
-    scene
-  );
-  roofL.position = new Vector3(0, 3.55, -0.75);
+  const roofL = box("ShedRoofL", 7.0, 0.22, 2.9, mats.shedRoof, shed);
+  roofL.position.set(0, 3.55, -0.75);
   roofL.rotation.x = 0.35;
-  roofL.material = mats.shedRoof;
-  roofL.parent = shed;
 
-  const roofR = MeshBuilder.CreateBox(
-    "ShedRoofR",
-    { width: 7.0, height: 0.22, depth: 2.9 },
-    scene
-  );
-  roofR.position = new Vector3(0, 3.55, 0.75);
+  const roofR = box("ShedRoofR", 7.0, 0.22, 2.9, mats.shedRoof, shed);
+  roofR.position.set(0, 3.55, 0.75);
   roofR.rotation.x = -0.35;
-  roofR.material = mats.shedRoof;
-  roofR.parent = shed;
 
-  // Ridge cap
-  const ridge = MeshBuilder.CreateBox(
-    "ShedRoofRidge",
-    { width: 7.1, height: 0.14, depth: 0.35 },
-    scene
-  );
-  ridge.position = new Vector3(0, 3.95, 0);
-  ridge.material = mats.shedRoof;
-  ridge.parent = shed;
+  const ridge = box("ShedRoofRidge", 7.1, 0.14, 0.35, mats.shedRoof, shed);
+  ridge.position.set(0, 3.95, 0);
 
-  // Porch slab
-  const porch = MeshBuilder.CreateBox(
-    "ShedPorch",
-    { width: 3.2, height: 0.18, depth: 1.6 },
-    scene
-  );
-  porch.position = new Vector3(0, 0.09, 3.15);
-  porch.material = mats.concrete;
-  porch.parent = shed;
+  const porch = box("ShedPorch", 3.2, 0.18, 1.6, mats.concrete, shed);
+  porch.position.set(0, 0.09, 3.15);
 
-  // Optional HVAC box on roof
-  const hvac = MeshBuilder.CreateBox(
-    "ShedHVAC",
-    { width: 1.4, height: 0.7, depth: 1.1 },
-    scene
-  );
-  hvac.position = new Vector3(-1.6, 4.15, -0.3);
-  hvac.material = mats.steel;
-  hvac.parent = shed;
+  const hvac = box("ShedHVAC", 1.4, 0.7, 1.1, mats.steel, shed);
+  hvac.position.set(-1.6, 4.15, -0.3);
 
-  const hvacFan = MeshBuilder.CreateCylinder(
-    "ShedHVACFan",
-    { height: 0.12, diameter: 0.55, tessellation: 12 },
-    scene
-  );
-  hvacFan.position = new Vector3(-1.6, 4.55, -0.3);
-  hvacFan.material = mats.steel;
-  hvacFan.parent = shed;
+  const hvacFan = cyl("ShedHVACFan", 0.275, 0.275, 0.12, mats.steel, shed, 12);
+  hvacFan.position.set(-1.6, 4.55, -0.3);
 }
 
-/**
- * Chunky post+rail fence along yard edges (not skinny wire).
- * Gaps on axes for yard entrances.
- */
-function createYardFence(
-  scene: Scene,
-  mats: SharedMaterials,
-  parent: TransformNode
-): void {
-  const fenceRoot = new TransformNode("YardFence", scene);
-  fenceRoot.parent = parent;
-
-  const half = YARD_SIZE / 2 - 1.5; // just inside grass edge
+function createYardFence(mats: SharedMaterials, parent: Object3D): void {
+  const fenceRoot = group("YardFence", parent);
+  const half = YARD_SIZE / 2 - 1.5;
   const postH = 1.35;
   const postW = 0.28;
   const railH = 0.16;
   const railD = 0.2;
   const spacing = 4.5;
-  const gateHalf = 5.5; // open gap centered on each axis
+  const gateHalf = 5.5;
 
   const sides: { axis: "x" | "z"; fixed: number; from: number; to: number }[] = [
     { axis: "x", fixed: half, from: -half, to: half },
@@ -226,11 +135,9 @@ function createYardFence(
   for (const side of sides) {
     const posts: number[] = [];
     for (let t = side.from; t <= side.to + 0.01; t += spacing) {
-      // Skip gate openings near axis centers
       if (Math.abs(t) < gateHalf) continue;
       posts.push(t);
     }
-    // Ensure end posts
     if (posts.length === 0 || posts[0]! > side.from + 0.1) {
       if (Math.abs(side.from) >= gateHalf) posts.unshift(side.from);
     }
@@ -239,45 +146,33 @@ function createYardFence(
     }
 
     for (const t of posts) {
-      const post = MeshBuilder.CreateBox(
+      const post = box(
         `FencePost_${postIdx++}`,
-        { width: postW, height: postH, depth: postW },
-        scene
+        postW,
+        postH,
+        postW,
+        mats.fence,
+        fenceRoot
       );
-      if (side.axis === "x") {
-        post.position = new Vector3(side.fixed, postH / 2, t);
-      } else {
-        post.position = new Vector3(t, postH / 2, side.fixed);
-      }
-      post.material = mats.fence;
-      post.parent = fenceRoot;
+      if (side.axis === "x") post.position.set(side.fixed, postH / 2, t);
+      else post.position.set(t, postH / 2, side.fixed);
     }
 
-    // Rails between consecutive posts (skip large gaps = gates)
     for (let i = 0; i < posts.length - 1; i++) {
       const a = posts[i]!;
       const b = posts[i + 1]!;
       const span = b - a;
-      if (span > spacing * 1.6) continue; // gate / missing segment
-
+      if (span > spacing * 1.6) continue;
       const mid = (a + b) / 2;
       const len = span - postW * 0.4;
 
       for (const railY of [0.45, 0.95] as const) {
-        const rail = MeshBuilder.CreateBox(
-          `FenceRail_${railIdx++}`,
+        const rail =
           side.axis === "x"
-            ? { width: railD, height: railH, depth: len }
-            : { width: len, height: railH, depth: railD },
-          scene
-        );
-        if (side.axis === "x") {
-          rail.position = new Vector3(side.fixed, railY, mid);
-        } else {
-          rail.position = new Vector3(mid, railY, side.fixed);
-        }
-        rail.material = mats.fence;
-        rail.parent = fenceRoot;
+            ? box(`FenceRail_${railIdx++}`, railD, railH, len, mats.fence, fenceRoot)
+            : box(`FenceRail_${railIdx++}`, len, railH, railD, mats.fence, fenceRoot);
+        if (side.axis === "x") rail.position.set(side.fixed, railY, mid);
+        else rail.position.set(mid, railY, side.fixed);
       }
     }
   }
@@ -285,23 +180,16 @@ function createYardFence(
 
 function createCrate(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
-  parent: TransformNode,
+  parent: Object3D,
   pos: Vector3,
   scale = 1
 ): LoadItem {
   const w = 1.2 * scale;
   const h = 1.0 * scale;
   const d = 1.2 * scale;
-  const crate = MeshBuilder.CreateBox(
-    name,
-    { width: w, height: h, depth: d },
-    scene
-  );
-  crate.position = pos.add(new Vector3(0, h / 2, 0));
-  crate.material = mats.crate;
-  crate.parent = parent;
+  const crate = box(name, w, h, d, mats.crate, parent);
+  crate.position.set(pos.x, pos.y + h / 2, pos.z);
   crate.rotation.y = Math.random() * 0.4 - 0.2;
 
   return {
@@ -318,29 +206,22 @@ function createCrate(
 
 function createBarrel(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
-  parent: TransformNode,
+  parent: Object3D,
   pos: Vector3,
   pickable = false
 ): LoadItem | null {
   const height = 1.1;
   const diameter = 0.7;
-  const barrel = MeshBuilder.CreateCylinder(
-    name,
-    { height, diameter, tessellation: 16 },
-    scene
-  );
-  barrel.position = pos.add(new Vector3(0, height / 2, 0));
-  barrel.material = mats.barrel;
-  barrel.parent = parent;
+  const barrel = cyl(name, diameter / 2, diameter / 2, height, mats.barrel, parent, 16);
+  barrel.position.set(pos.x, pos.y + height / 2, pos.z);
 
   if (!pickable) return null;
 
   return {
     id: name,
     kind: "barrel",
-    mesh: barrel as Mesh,
+    mesh: barrel,
     halfHeight: height / 2,
     radius: diameter / 2,
     massKg: BARREL_MASS_KG,
@@ -351,122 +232,84 @@ function createBarrel(
 
 function createCone(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
-  parent: TransformNode,
+  parent: Object3D,
   x: number,
   z: number
 ): void {
-  const cone = MeshBuilder.CreateCylinder(
-    name,
-    { height: 0.7, diameterTop: 0.05, diameterBottom: 0.35, tessellation: 12 },
-    scene
-  );
-  cone.position = new Vector3(x, 0.35, z);
-  cone.material = mats.cones;
-  cone.parent = parent;
+  const cone = cyl(name, 0.025, 0.175, 0.7, mats.cones, parent, 12);
+  cone.position.set(x, 0.35, z);
 }
 
 function createPadMarker(
   label: "A" | "B",
-  scene: Scene,
   mats: SharedMaterials,
-  parent: TransformNode,
+  parent: Object3D,
   x: number,
   z: number
 ): void {
-  const node = new TransformNode(`PadMarker${label}`, scene);
-  node.parent = parent;
-  node.position = new Vector3(x, 0, z);
+  const node = group(`PadMarker${label}`, parent);
+  node.position.set(x, 0, z);
 
-  const disc = MeshBuilder.CreateCylinder(
+  const discMesh = cyl(
     `MarkerDisc${label}`,
-    { height: 0.08, diameter: 2.2, tessellation: 24 },
-    scene
+    1.1,
+    1.1,
+    0.08,
+    label === "A" ? mats.markerA : mats.markerB,
+    node,
+    24
   );
-  disc.position.y = 0.06;
-  disc.material = label === "A" ? mats.markerA : mats.markerB;
-  disc.parent = node;
+  discMesh.position.y = 0.06;
 
-  const bar = MeshBuilder.CreateBox(
+  const bar = box(
     `MarkerGlyph${label}`,
-    {
-      width: label === "A" ? 0.15 : 0.9,
-      height: 0.12,
-      depth: label === "A" ? 1.1 : 0.15,
-    },
-    scene
+    label === "A" ? 0.15 : 0.9,
+    0.12,
+    label === "A" ? 1.1 : 0.15,
+    mats.glyph,
+    node
   );
   bar.position.y = 0.16;
-  const glyphMat = new StandardMaterial(`matGlyph${label}`, scene);
-  glyphMat.diffuseColor = Color3.White();
-  glyphMat.emissiveColor = Color3.White().scale(0.015);
-  glyphMat.specularColor = Color3.Black();
-  bar.material = glyphMat;
-  bar.parent = node;
 
   if (label === "A") {
-    const cross = MeshBuilder.CreateBox(
-      "MarkerGlyphA_cross",
-      { width: 0.9, height: 0.12, depth: 0.15 },
-      scene
-    );
+    const cross = box("MarkerGlyphA_cross", 0.9, 0.12, 0.15, mats.glyph, node);
     cross.position.y = 0.16;
-    cross.material = glyphMat;
-    cross.parent = node;
   }
 }
 
-/**
- * Yard props: concrete pads, school shed, fence, crates, barrels, cones, markers.
- * Returns pickable loads + pad zones for M2 grab/place.
- */
 export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
-  const root = new TransformNode("PropsRoot", scene);
+  const root = group("PropsRoot");
+  scene.add(root);
   const loads: LoadItem[] = [];
   const pads: PadZone[] = [];
 
-  const pad1 = createConcretePad("Pad1", scene, mats, root, -18, 12, 10);
+  const pad1 = createConcretePad("Pad1", mats, root, -18, 12, 10);
   pad1.label = "Pad A";
   pad1.marked = true;
   pads.push(pad1);
 
-  const pad2 = createConcretePad("Pad2", scene, mats, root, 22, -8, 8);
+  const pad2 = createConcretePad("Pad2", mats, root, 22, -8, 8);
   pad2.label = "Pad B";
   pad2.marked = true;
   pads.push(pad2);
 
-  const pad3 = createConcretePad("Pad3", scene, mats, root, -12, -22, 7);
+  const pad3 = createConcretePad("Pad3", mats, root, -12, -22, 7);
   pad3.label = "Pad 3";
   pads.push(pad3);
 
-  createShed(scene, mats, root, -28, 28);
-  createYardFence(scene, mats, root);
+  createShed(mats, root, -28, 28);
+  createYardFence(mats, root);
 
-  // Pickable crates near pads
-  loads.push(createCrate("Crate1", scene, mats, root, new Vector3(-16, 0, 10)));
-  loads.push(
-    createCrate("Crate2", scene, mats, root, new Vector3(-14.5, 0, 11.2), 0.85)
-  );
-  loads.push(
-    createCrate("Crate3", scene, mats, root, new Vector3(20, 0, -6), 1.1)
-  );
-  loads.push(
-    createCrate("Crate4", scene, mats, root, new Vector3(21.5, 0, -7.5), 0.7)
-  );
+  loads.push(createCrate("Crate1", mats, root, new Vector3(-16, 0, 10)));
+  loads.push(createCrate("Crate2", mats, root, new Vector3(-14.5, 0, 11.2), 0.85));
+  loads.push(createCrate("Crate3", mats, root, new Vector3(20, 0, -6), 1.1));
+  loads.push(createCrate("Crate4", mats, root, new Vector3(21.5, 0, -7.5), 0.7));
 
-  // One pickable barrel + decorative barrels
-  const b1 = createBarrel(
-    "Barrel1",
-    scene,
-    mats,
-    root,
-    new Vector3(-10, 0, -20),
-    true
-  );
+  const b1 = createBarrel("Barrel1", mats, root, new Vector3(-10, 0, -20), true);
   if (b1) loads.push(b1);
-  createBarrel("Barrel2", scene, mats, root, new Vector3(-9.1, 0, -20.8));
-  createBarrel("Barrel3", scene, mats, root, new Vector3(24, 0, -10));
+  createBarrel("Barrel2", mats, root, new Vector3(-9.1, 0, -20.8));
+  createBarrel("Barrel3", mats, root, new Vector3(24, 0, -10));
 
   const coneRing: [number, number][] = [
     [14, 14],
@@ -479,11 +322,11 @@ export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
     [-16, 0],
   ];
   coneRing.forEach(([cx, cz], i) => {
-    createCone(`Cone${i}`, scene, mats, root, cx, cz);
+    createCone(`Cone${i}`, mats, root, cx, cz);
   });
 
-  createPadMarker("A", scene, mats, root, -18, 12);
-  createPadMarker("B", scene, mats, root, 22, -8);
+  createPadMarker("A", mats, root, -18, 12);
+  createPadMarker("B", mats, root, 22, -8);
 
   return { root, loads, pads };
 }

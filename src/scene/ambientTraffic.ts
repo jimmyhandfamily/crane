@@ -1,14 +1,12 @@
 import {
-  MeshBuilder,
+  MeshStandardMaterial,
+  Object3D,
   Scene,
-  StandardMaterial,
-  TransformNode,
-  Vector3,
-} from "@babylonjs/core";
+} from "three";
 import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
+import { box, cyl, groundPlane, group } from "./meshHelpers";
 
-/** Waypoint on the edge gravel path (stays clear of Pad A/B). */
 interface Waypoint {
   x: number;
   z: number;
@@ -17,41 +15,34 @@ interface Waypoint {
 type TruckKind = "pickup" | "flatbed" | "box";
 
 interface AmbientTruck {
-  root: TransformNode;
+  root: Object3D;
   kind: TruckKind;
-  /** Progress along path [0..pathLen], or -1 when waiting offsite. */
   t: number;
   speed: number;
   pauseAt: number;
   pauseLeft: number;
   waitLeft: number;
-  /** Direction: +1 inbound/outbound along path, or -1 reverse exit. */
   dir: 1 | -1;
   phase: "wait" | "drive" | "pause" | "exit";
 }
 
 export interface AmbientTraffic {
-  root: TransformNode;
+  root: Object3D;
   update(dt: number): void;
 }
 
-/**
- * Edge path: west gate → along west fence → pause near shed → out north gate.
- * Keeps clear of Pad A (-18,12) and Pad B (22,-8) and crane center.
- */
 const EDGE_PATH: Waypoint[] = [
-  { x: -YARD_SIZE / 2 - 8, z: 0 }, // outside west gate
+  { x: -YARD_SIZE / 2 - 8, z: 0 },
   { x: -42, z: 0 },
   { x: -42, z: 18 },
-  { x: -36, z: 24 }, // pause near shed (-28,28)
+  { x: -36, z: 24 },
   { x: -36, z: 38 },
   { x: -12, z: 42 },
   { x: 0, z: 42 },
-  { x: 0, z: YARD_SIZE / 2 + 8 }, // outside north gate
+  { x: 0, z: YARD_SIZE / 2 + 8 },
 ];
 
 const PAUSE_INDEX = 3;
-
 function pathLength(path: Waypoint[]): number {
   let len = 0;
   for (let i = 1; i < path.length; i++) {
@@ -65,14 +56,11 @@ function pathLength(path: Waypoint[]): number {
 function samplePath(
   path: Waypoint[],
   dist: number
-): { pos: Vector3; yaw: number } {
+): { x: number; z: number; yaw: number } {
   if (dist <= 0) {
     const a = path[0]!;
     const b = path[1]!;
-    return {
-      pos: new Vector3(a.x, 0, a.z),
-      yaw: Math.atan2(b.x - a.x, b.z - a.z),
-    };
+    return { x: a.x, z: a.z, yaw: Math.atan2(b.x - a.x, b.z - a.z) };
   }
   let remaining = dist;
   for (let i = 1; i < path.length; i++) {
@@ -81,10 +69,9 @@ function samplePath(
     const seg = Math.hypot(b.x - a.x, b.z - a.z);
     if (remaining <= seg || i === path.length - 1) {
       const u = seg > 0 ? Math.min(1, remaining / seg) : 0;
-      const x = a.x + (b.x - a.x) * u;
-      const z = a.z + (b.z - a.z) * u;
       return {
-        pos: new Vector3(x, 0, z),
+        x: a.x + (b.x - a.x) * u,
+        z: a.z + (b.z - a.z) * u,
         yaw: Math.atan2(b.x - a.x, b.z - a.z),
       };
     }
@@ -93,7 +80,8 @@ function samplePath(
   const last = path[path.length - 1]!;
   const prev = path[path.length - 2]!;
   return {
-    pos: new Vector3(last.x, 0, last.z),
+    x: last.x,
+    z: last.z,
     yaw: Math.atan2(last.x - prev.x, last.z - prev.z),
   };
 }
@@ -110,71 +98,36 @@ function distToIndex(path: Waypoint[], index: number): number {
 
 function addWheel(
   name: string,
-  scene: Scene,
-  parent: TransformNode,
-  mat: StandardMaterial,
+  parent: Object3D,
+  mat: MeshStandardMaterial,
   x: number,
   z: number,
   y = 0.45
 ): void {
-  // Chunky thick short cylinder, axis along X (sideways)
-  const wheel = MeshBuilder.CreateCylinder(
-    name,
-    { height: 0.4, diameter: 0.9, tessellation: 10 },
-    scene
-  );
+  const wheel = cyl(name, 0.45, 0.45, 0.4, mat, parent, 10);
   wheel.rotation.z = Math.PI / 2;
-  wheel.position = new Vector3(x, y, z);
-  wheel.material = mat;
-  wheel.parent = parent;
+  wheel.position.set(x, y, z);
 }
 
 function createPickup(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
-  bodyMat: StandardMaterial
-): TransformNode {
-  // ~5.5 × 2 × 1.9 m
-  const root = new TransformNode(name, scene);
-  const cab = MeshBuilder.CreateBox(
-    `${name}_Cab`,
-    { width: 2.0, height: 1.5, depth: 2.2 },
-    scene
-  );
-  cab.position = new Vector3(0, 1.15, 1.2);
-  cab.material = bodyMat;
-  cab.parent = root;
+  bodyMat: MeshStandardMaterial
+): Object3D {
+  const root = group(name);
+  const cab = box(`${name}_Cab`, 2.0, 1.5, 2.2, bodyMat, root);
+  cab.position.set(0, 1.15, 1.2);
 
-  const glass = MeshBuilder.CreateBox(
-    `${name}_Glass`,
-    { width: 1.7, height: 0.7, depth: 0.12 },
-    scene
-  );
-  glass.position = new Vector3(0, 1.45, 2.25);
-  glass.material = mats.glassDark;
-  glass.parent = root;
+  const glass = box(`${name}_Glass`, 1.7, 0.7, 0.12, mats.glassDark, root);
+  glass.position.set(0, 1.45, 2.25);
 
-  const bed = MeshBuilder.CreateBox(
-    `${name}_Bed`,
-    { width: 1.9, height: 0.45, depth: 2.8 },
-    scene
-  );
-  bed.position = new Vector3(0, 0.75, -1.2);
-  bed.material = mats.steel;
-  bed.parent = root;
+  const bed = box(`${name}_Bed`, 1.9, 0.45, 2.8, mats.steel, root);
+  bed.position.set(0, 0.75, -1.2);
 
-  const railL = MeshBuilder.CreateBox(
-    `${name}_RailL`,
-    { width: 0.1, height: 0.55, depth: 2.7 },
-    scene
-  );
-  railL.position = new Vector3(-0.9, 1.15, -1.2);
-  railL.material = mats.steel;
-  railL.parent = root;
-  const railR = railL.clone(`${name}_RailR`);
-  railR.position.x = 0.9;
-  railR.parent = root;
+  const railL = box(`${name}_RailL`, 0.1, 0.55, 2.7, mats.steel, root);
+  railL.position.set(-0.9, 1.15, -1.2);
+  const railR = box(`${name}_RailR`, 0.1, 0.55, 2.7, mats.steel, root);
+  railR.position.set(0.9, 1.15, -1.2);
 
   for (const [wx, wz] of [
     [-0.85, 1.5],
@@ -182,45 +135,25 @@ function createPickup(
     [-0.85, -1.8],
     [0.85, -1.8],
   ] as const) {
-    addWheel(`${name}_Wheel_${wx}_${wz}`, scene, root, mats.wheel, wx, wz);
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz);
   }
   return root;
 }
 
 function createFlatbed(
   name: string,
-  scene: Scene,
   mats: SharedMaterials,
-  bodyMat: StandardMaterial
-): TransformNode {
-  // ~7 × 2.4 × 2.2 m
-  const root = new TransformNode(name, scene);
-  const cab = MeshBuilder.CreateBox(
-    `${name}_Cab`,
-    { width: 2.3, height: 1.7, depth: 2.4 },
-    scene
-  );
-  cab.position = new Vector3(0, 1.35, 2.0);
-  cab.material = bodyMat;
-  cab.parent = root;
+  bodyMat: MeshStandardMaterial
+): Object3D {
+  const root = group(name);
+  const cab = box(`${name}_Cab`, 2.3, 1.7, 2.4, bodyMat, root);
+  cab.position.set(0, 1.35, 2.0);
 
-  const glass = MeshBuilder.CreateBox(
-    `${name}_Glass`,
-    { width: 1.9, height: 0.75, depth: 0.12 },
-    scene
-  );
-  glass.position = new Vector3(0, 1.65, 3.15);
-  glass.material = mats.glassDark;
-  glass.parent = root;
+  const glass = box(`${name}_Glass`, 1.9, 0.75, 0.12, mats.glassDark, root);
+  glass.position.set(0, 1.65, 3.15);
 
-  const deck = MeshBuilder.CreateBox(
-    `${name}_Deck`,
-    { width: 2.4, height: 0.35, depth: 4.2 },
-    scene
-  );
-  deck.position = new Vector3(0, 0.85, -1.2);
-  deck.material = mats.steel;
-  deck.parent = root;
+  const deck = box(`${name}_Deck`, 2.4, 0.35, 4.2, mats.steel, root);
+  deck.position.set(0, 0.85, -1.2);
 
   for (const [wx, wz] of [
     [-1.05, 2.2],
@@ -230,44 +163,21 @@ function createFlatbed(
     [-1.05, -2.6],
     [1.05, -2.6],
   ] as const) {
-    addWheel(`${name}_Wheel_${wx}_${wz}`, scene, root, mats.wheel, wx, wz, 0.5);
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5);
   }
   return root;
 }
 
-function createBoxTruck(
-  name: string,
-  scene: Scene,
-  mats: SharedMaterials
-): TransformNode {
-  // ~8 × 2.5 × 3.2 m — tall rear box, optional yellow cab
-  const root = new TransformNode(name, scene);
-  const cab = MeshBuilder.CreateBox(
-    `${name}_Cab`,
-    { width: 2.4, height: 2.0, depth: 2.2 },
-    scene
-  );
-  cab.position = new Vector3(0, 1.5, 2.6);
-  cab.material = mats.craneYellow;
-  cab.parent = root;
+function createBoxTruck(name: string, mats: SharedMaterials): Object3D {
+  const root = group(name);
+  const cab = box(`${name}_Cab`, 2.4, 2.0, 2.2, mats.craneYellow, root);
+  cab.position.set(0, 1.5, 2.6);
 
-  const glass = MeshBuilder.CreateBox(
-    `${name}_Glass`,
-    { width: 2.0, height: 0.9, depth: 0.12 },
-    scene
-  );
-  glass.position = new Vector3(0, 1.85, 3.65);
-  glass.material = mats.glassDark;
-  glass.parent = root;
+  const glass = box(`${name}_Glass`, 2.0, 0.9, 0.12, mats.glassDark, root);
+  glass.position.set(0, 1.85, 3.65);
 
-  const box = MeshBuilder.CreateBox(
-    `${name}_Box`,
-    { width: 2.5, height: 2.8, depth: 5.2 },
-    scene
-  );
-  box.position = new Vector3(0, 1.9, -0.8);
-  box.material = mats.truckBox;
-  box.parent = root;
+  const boxBody = box(`${name}_Box`, 2.5, 2.8, 5.2, mats.truckBox, root);
+  boxBody.position.set(0, 1.9, -0.8);
 
   for (const [wx, wz] of [
     [-1.1, 2.6],
@@ -277,39 +187,21 @@ function createBoxTruck(
     [-1.1, -2.6],
     [1.1, -2.6],
   ] as const) {
-    addWheel(`${name}_Wheel_${wx}_${wz}`, scene, root, mats.wheel, wx, wz, 0.5);
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5);
   }
   return root;
 }
 
-function createParkedVan(
-  scene: Scene,
-  mats: SharedMaterials,
-  parent: TransformNode
-): void {
-  const van = new TransformNode("AmbientVanParked", scene);
-  van.parent = parent;
-  // Near shed (-28, 28), south-east of porch, clear of truck path
-  van.position = new Vector3(-24, 0, 22);
+function createParkedVan(mats: SharedMaterials, parent: Object3D): void {
+  const van = group("AmbientVanParked", parent);
+  van.position.set(-24, 0, 22);
   van.rotation.y = Math.PI * 0.15;
 
-  const body = MeshBuilder.CreateBox(
-    "AmbientVanParked_Body",
-    { width: 2.1, height: 2.2, depth: 5.0 },
-    scene
-  );
+  const body = box("AmbientVanParked_Body", 2.1, 2.2, 5.0, mats.truckBlue, van);
   body.position.y = 1.4;
-  body.material = mats.truckBlue;
-  body.parent = van;
 
-  const glass = MeshBuilder.CreateBox(
-    "AmbientVanParked_Glass",
-    { width: 1.8, height: 0.8, depth: 0.1 },
-    scene
-  );
-  glass.position = new Vector3(0, 1.7, 2.45);
-  glass.material = mats.glassDark;
-  glass.parent = van;
+  const glass = box("AmbientVanParked_Glass", 1.8, 0.8, 0.1, mats.glassDark, van);
+  glass.position.set(0, 1.7, 2.45);
 
   for (const [wx, wz] of [
     [-0.9, 1.6],
@@ -317,116 +209,43 @@ function createParkedVan(
     [-0.9, -1.6],
     [0.9, -1.6],
   ] as const) {
-    addWheel(`AmbientVanParked_Wheel_${wx}_${wz}`, scene, van, mats.wheel, wx, wz);
+    addWheel(`AmbientVanParked_Wheel_${wx}_${wz}`, van, mats.wheel, wx, wz);
   }
 }
 
-function createGravelRoad(
-  scene: Scene,
-  mats: SharedMaterials,
-  parent: TransformNode
-): void {
-  const roadRoot = new TransformNode("GravelDriveway", scene);
-  roadRoot.parent = parent;
+function createGravelRoad(mats: SharedMaterials, parent: Object3D): void {
+  const roadRoot = group("GravelDriveway", parent);
 
-  // West approach strip (through west gate along x, centered z=0)
-  const westOuter = MeshBuilder.CreateGround(
-    "GravelWestOuter",
-    { width: 22, height: 7 },
-    scene
-  );
-  westOuter.position = new Vector3(-44, 0.05, 0);
-  westOuter.material = mats.gravel;
-  westOuter.parent = roadRoot;
-  westOuter.receiveShadows = true;
+  const westOuter = groundPlane("GravelWestOuter", 22, 7, mats.gravel, roadRoot);
+  westOuter.position.set(-44, 0.05, 0);
 
-  const westCenter = MeshBuilder.CreateGround(
-    "GravelWestCenter",
-    { width: 20, height: 3.2 },
-    scene
-  );
-  westCenter.position = new Vector3(-44, 0.06, 0);
-  westCenter.material = mats.gravelLight;
-  westCenter.parent = roadRoot;
+  const westCenter = groundPlane("GravelWestCenter", 20, 3.2, mats.gravelLight, roadRoot);
+  westCenter.position.set(-44, 0.06, 0);
 
-  // North–south run along west edge toward shed
-  const edgeOuter = MeshBuilder.CreateGround(
-    "GravelEdgeOuter",
-    { width: 7, height: 44 },
-    scene
-  );
-  edgeOuter.position = new Vector3(-42, 0.05, 20);
-  edgeOuter.material = mats.gravel;
-  edgeOuter.parent = roadRoot;
-  edgeOuter.receiveShadows = true;
+  const edgeOuter = groundPlane("GravelEdgeOuter", 7, 44, mats.gravel, roadRoot);
+  edgeOuter.position.set(-42, 0.05, 20);
 
-  const edgeCenter = MeshBuilder.CreateGround(
-    "GravelEdgeCenter",
-    { width: 3.2, height: 42 },
-    scene
-  );
-  edgeCenter.position = new Vector3(-42, 0.06, 20);
-  edgeCenter.material = mats.gravelLight;
-  edgeCenter.parent = roadRoot;
+  const edgeCenter = groundPlane("GravelEdgeCenter", 3.2, 42, mats.gravelLight, roadRoot);
+  edgeCenter.position.set(-42, 0.06, 20);
 
-  // Spur toward shed pause area
-  const spurOuter = MeshBuilder.CreateGround(
-    "GravelSpurOuter",
-    { width: 10, height: 7 },
-    scene
-  );
-  spurOuter.position = new Vector3(-36, 0.05, 24);
-  spurOuter.material = mats.gravel;
-  spurOuter.parent = roadRoot;
+  const spurOuter = groundPlane("GravelSpurOuter", 10, 7, mats.gravel, roadRoot);
+  spurOuter.position.set(-36, 0.05, 24);
 
-  const spurCenter = MeshBuilder.CreateGround(
-    "GravelSpurCenter",
-    { width: 7, height: 3.2 },
-    scene
-  );
-  spurCenter.position = new Vector3(-36, 0.06, 24);
-  spurCenter.material = mats.gravelLight;
-  spurCenter.parent = roadRoot;
+  const spurCenter = groundPlane("GravelSpurCenter", 7, 3.2, mats.gravelLight, roadRoot);
+  spurCenter.position.set(-36, 0.06, 24);
 
-  // North exit run
-  const northOuter = MeshBuilder.CreateGround(
-    "GravelNorthOuter",
-    { width: 7, height: 20 },
-    scene
-  );
-  northOuter.position = new Vector3(0, 0.05, 44);
-  northOuter.material = mats.gravel;
-  northOuter.parent = roadRoot;
+  const northOuter = groundPlane("GravelNorthOuter", 7, 20, mats.gravel, roadRoot);
+  northOuter.position.set(0, 0.05, 44);
 
-  const northCenter = MeshBuilder.CreateGround(
-    "GravelNorthCenter",
-    { width: 3.2, height: 18 },
-    scene
-  );
-  northCenter.position = new Vector3(0, 0.06, 44);
-  northCenter.material = mats.gravelLight;
-  northCenter.parent = roadRoot;
+  const northCenter = groundPlane("GravelNorthCenter", 3.2, 18, mats.gravelLight, roadRoot);
+  northCenter.position.set(0, 0.06, 44);
 
-  // Connector from edge to north (along z≈42)
-  const connOuter = MeshBuilder.CreateGround(
-    "GravelConnOuter",
-    { width: 36, height: 7 },
-    scene
-  );
-  connOuter.position = new Vector3(-18, 0.05, 42);
-  connOuter.material = mats.gravel;
-  connOuter.parent = roadRoot;
+  const connOuter = groundPlane("GravelConnOuter", 36, 7, mats.gravel, roadRoot);
+  connOuter.position.set(-18, 0.05, 42);
 
-  const connCenter = MeshBuilder.CreateGround(
-    "GravelConnCenter",
-    { width: 34, height: 3.2 },
-    scene
-  );
-  connCenter.position = new Vector3(-18, 0.06, 42);
-  connCenter.material = mats.gravelLight;
-  connCenter.parent = roadRoot;
+  const connCenter = groundPlane("GravelConnCenter", 34, 3.2, mats.gravelLight, roadRoot);
+  connCenter.position.set(-18, 0.06, 42);
 
-  // Tire track strips on gravel (#7A7160) — dual ruts along main runs
   const tracks: { name: string; w: number; d: number; x: number; z: number }[] = [
     { name: "TireTrackWestL", w: 18, d: 0.45, x: -44, z: -1.1 },
     { name: "TireTrackWestR", w: 18, d: 0.45, x: -44, z: 1.1 },
@@ -440,24 +259,19 @@ function createGravelRoad(
     { name: "TireTrackNorthR", w: 0.45, d: 16, x: 1.1, z: 44 },
   ];
   for (const t of tracks) {
-    const strip = MeshBuilder.CreateGround(t.name, { width: t.w, height: t.d }, scene);
-    strip.position = new Vector3(t.x, 0.065, t.z);
-    strip.material = mats.tireTrack;
-    strip.parent = roadRoot;
+    const strip = groundPlane(t.name, t.w, t.d, mats.tireTrack, roadRoot);
+    strip.position.set(t.x, 0.065, t.z);
   }
 }
 
-/**
- * Ambient site traffic: gravel edge driveway + looping cartoon trucks + parked van.
- * Kinematic only — does not touch crane gameplay / pads.
- */
 export function createAmbientTraffic(
   scene: Scene,
   mats: SharedMaterials
 ): AmbientTraffic {
-  const root = new TransformNode("AmbientTrafficRoot", scene);
-  createGravelRoad(scene, mats, root);
-  createParkedVan(scene, mats, root);
+  const root = group("AmbientTrafficRoot");
+  scene.add(root);
+  createGravelRoad(mats, root);
+  createParkedVan(mats, root);
 
   const totalLen = pathLength(EDGE_PATH);
   const pauseDist = distToIndex(EDGE_PATH, PAUSE_INDEX);
@@ -465,28 +279,28 @@ export function createAmbientTraffic(
   const specs: {
     name: string;
     kind: TruckKind;
-    build: () => TransformNode;
+    build: () => Object3D;
     startWait: number;
     speed: number;
   }[] = [
     {
       name: "AmbientTruck1",
       kind: "pickup",
-      build: () => createPickup("AmbientTruck1", scene, mats, mats.truckWhite),
+      build: () => createPickup("AmbientTruck1", mats, mats.truckWhite),
       startWait: 0.5,
       speed: 9.5,
     },
     {
       name: "AmbientTruck2",
       kind: "flatbed",
-      build: () => createFlatbed("AmbientTruck2", scene, mats, mats.truckBlue),
+      build: () => createFlatbed("AmbientTruck2", mats, mats.truckBlue),
       startWait: 11,
       speed: 8.5,
     },
     {
       name: "AmbientTruck3",
       kind: "box",
-      build: () => createBoxTruck("AmbientTruck3", scene, mats),
+      build: () => createBoxTruck("AmbientTruck3", mats),
       startWait: 22,
       speed: 7.5,
     },
@@ -494,8 +308,8 @@ export function createAmbientTraffic(
 
   const trucks: AmbientTruck[] = specs.map((s) => {
     const node = s.build();
-    node.parent = root;
-    node.setEnabled(false);
+    root.add(node);
+    node.visible = false;
     return {
       root: node,
       kind: s.kind,
@@ -504,16 +318,15 @@ export function createAmbientTraffic(
       pauseAt: pauseDist,
       pauseLeft: 0,
       waitLeft: s.startWait,
-      dir: 1,
+      dir: 1 as const,
       phase: "wait" as const,
     };
   });
 
-  // Hide at start position
   for (const truck of trucks) {
-    const { pos, yaw } = samplePath(EDGE_PATH, 0);
-    truck.root.position.copyFrom(pos);
-    truck.root.rotation.y = yaw;
+    const s = samplePath(EDGE_PATH, 0);
+    truck.root.position.set(s.x, 0, s.z);
+    truck.root.rotation.y = s.yaw;
   }
 
   const update = (dt: number): void => {
@@ -524,7 +337,7 @@ export function createAmbientTraffic(
           truck.phase = "drive";
           truck.t = 0;
           truck.dir = 1;
-          truck.root.setEnabled(true);
+          truck.root.visible = true;
         }
         continue;
       }
@@ -537,28 +350,25 @@ export function createAmbientTraffic(
         continue;
       }
 
-      // drive or exit
       truck.t += truck.speed * dt * truck.dir;
 
       if (truck.phase === "drive" && truck.t >= truck.pauseAt) {
         truck.t = truck.pauseAt;
         truck.phase = "pause";
-        // Brief staggered pause 2.5–4.5s
         truck.pauseLeft = 2.5 + Math.random() * 2;
       }
 
       if (truck.t >= totalLen) {
-        truck.root.setEnabled(false);
+        truck.root.visible = false;
         truck.phase = "wait";
-        // Stagger respawn 8–18s so loops feel random
         truck.waitLeft = 8 + Math.random() * 10;
         truck.t = 0;
         continue;
       }
 
-      const { pos, yaw } = samplePath(EDGE_PATH, Math.max(0, truck.t));
-      truck.root.position.copyFrom(pos);
-      truck.root.rotation.y = yaw;
+      const s = samplePath(EDGE_PATH, Math.max(0, truck.t));
+      truck.root.position.set(s.x, 0, s.z);
+      truck.root.rotation.y = s.yaw;
     }
   };
 
