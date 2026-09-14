@@ -1,0 +1,40 @@
+/**
+ * HTML HUD overlay controller.
+ * Markup lives in index.html; this module wires copy and optional stubs.
+ */
+
+export interface HudOptions {
+  title?: string;
+  role?: string;
+  objective?: string;
+  showPayTease?: boolean;
+}
+
+const DEFAULTS: Required<HudOptions> = {
+  title: "Training Yard",
+  role: "Apprentice",
+  objective: "Look around the yard. Get a feel for the crane.",
+  showPayTease: true,
+};
+
+export function initHud(options: HudOptions = {}): void {
+  const opts = { ...DEFAULTS, ...options };
+
+  const titleEl = document.querySelector("#hud-title h1");
+  const roleEl = document.querySelector("#hud-title .role");
+  const objectiveEl = document.querySelector("#hud-objective .text");
+  const payEl = document.getElementById("hud-pay");
+
+  if (titleEl) titleEl.textContent = opts.title;
+  if (roleEl) roleEl.textContent = opts.role;
+  if (objectiveEl) objectiveEl.textContent = opts.objective;
+
+  if (payEl) {
+    payEl.style.display = opts.showPayTease ? "" : "none";
+  }
+}
+
+export function setObjective(text: string): void {
+  const el = document.querySelector("#hud-objective .text");
+  if (el) el.textContent = text;
+}
