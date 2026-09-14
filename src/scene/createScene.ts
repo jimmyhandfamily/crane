@@ -11,6 +11,7 @@ import {
   createCraneController,
   type CraneController,
 } from "../crane";
+import { createLoadManager, type LoadManager } from "../loads";
 import { createGround } from "./ground";
 import { createLights } from "./lights";
 import { createSharedMaterials } from "./materials";
@@ -20,6 +21,7 @@ export interface CraneScene {
   scene: Scene;
   engine: Engine;
   crane: CraneController;
+  loads: LoadManager;
 }
 
 export function createCraneScene(
@@ -43,7 +45,8 @@ export function createCraneScene(
   createGround(scene, mats);
   const parts = createPlaceholderCrane(scene, mats);
   const crane = createCraneController(parts);
-  createProps(scene, mats);
+  const { loads: loadItems, pads } = createProps(scene, mats);
+  const loads = createLoadManager(loadItems, pads);
 
-  return { scene, engine, crane };
+  return { scene, engine, crane, loads };
 }

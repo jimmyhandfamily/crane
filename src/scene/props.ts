@@ -5,8 +5,16 @@ import {
   Vector3,
   Color3,
   StandardMaterial,
+  Mesh,
 } from "@babylonjs/core";
 import type { SharedMaterials } from "./materials";
+import type { LoadItem, PadZone } from "../loads/types";
+
+export interface PropsResult {
+  root: TransformNode;
+  loads: LoadItem[];
+  pads: PadZone[];
+}
 
 function createConcretePad(
   name: string,
@@ -16,7 +24,7 @@ function createConcretePad(
   x: number,
   z: number,
   size = 8
-): void {
+): PadZone {
   const pad = MeshBuilder.CreateBox(
     name,
     { width: size, height: 0.15, depth: size },
@@ -26,6 +34,14 @@ function createConcretePad(
   pad.material = mats.concrete;
   pad.parent = parent;
   pad.receiveShadows = true;
+
+  return {
+    id: name,
+    label: name,
+    center: new Vector3(x, 0, z),
+    halfSize: size / 2,
+    marked: false,
+  };
 }
 
 function createShed(
@@ -48,7 +64,6 @@ function createShed(
   wall.material = mats.shedWall;
   wall.parent = shed;
 
-  // Simple pitched roof (two boxes)
   const roofL = MeshBuilder.CreateBox(
     "ShedRoofL",
     { width: 6.4, height: 0.2, depth: 2.6 },
@@ -77,16 +92,29 @@ function createCrate(
   parent: TransformNode,
   pos: Vector3,
   scale = 1
-): void {
+): LoadItem {
+  const w = 1.2 * scale;
+  const h = 1.0 * scale;
+  const d = 1.2 * scale;
   const crate = MeshBuilder.CreateBox(
     name,
-    { width: 1.2 * scale, height: 1.0 * scale, depth: 1.2 * scale },
+    { width: w, height: h, depth: d },
     scene
   );
-  crate.position = pos.add(new Vector3(0, 0.5 * scale, 0));
+  crate.position = pos.add(new Vector3(0, h / 2, 0));
   crate.material = mats.crate;
   crate.parent = parent;
   crate.rotation.y = Math.random() * 0.4 - 0.2;
+
+  return {
+    id: name,
+    kind: "crate",
+    mesh: crate,
+    halfHeight: h / 2,
+    radius: Math.max(w, d) / 2,
+    attached: false,
+    placed: false,
+  };
 }
 
 function createBarrel(
@@ -94,16 +122,31 @@ function createBarrel(
   scene: Scene,
   mats: SharedMaterials,
   parent: TransformNode,
-  pos: Vector3
-): void {
+  pos: Vector3,
+  pickable = false
+): LoadItem | null {
+  const height = 1.1;
+  const diameter = 0.7;
   const barrel = MeshBuilder.CreateCylinder(
     name,
-    { height: 1.1, diameter: 0.7, tessellation: 16 },
+    { height, diameter, tessellation: 16 },
     scene
   );
-  barrel.position = pos.add(new Vector3(0, 0.55, 0));
+  barrel.position = pos.add(new Vector3(0, height / 2, 0));
   barrel.material = mats.barrel;
   barrel.parent = parent;
+
+  if (!pickable) return null;
+
+  return {
+    id: name,
+    kind: "barrel",
+    mesh: barrel as Mesh,
+    halfHeight: height / 2,
+    radius: diameter / 2,
+    attached: false,
+    placed: false,
+  };
 }
 
 function createCone(
@@ -145,10 +188,13 @@ function createPadMarker(
   disc.material = label === "A" ? mats.markerA : mats.markerB;
   disc.parent = node;
 
-  // Letter stub as a raised bar/cross (readable from orbit)
   const bar = MeshBuilder.CreateBox(
     `MarkerGlyph${label}`,
-    { width: label === "A" ? 0.15 : 0.9, height: 0.12, depth: label === "A" ? 1.1 : 0.15 },
+    {
+      width: label === "A" ? 0.15 : 0.9,
+      height: 0.12,
+      depth: label === "A" ? 1.1 : 0.15,
+    },
     scene
   );
   bar.position.y = 0.16;
@@ -173,26 +219,54 @@ function createPadMarker(
 
 /**
  * Yard props: concrete pads, school shed, crates, barrels, cones, pad markers A/B.
+ * Returns pickable loads + pad zones for M2 grab/place.
  */
-export function createProps(scene: Scene, mats: SharedMaterials): TransformNode {
+export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
   const root = new TransformNode("PropsRoot", scene);
+  const loads: LoadItem[] = [];
+  const pads: PadZone[] = [];
 
-  createConcretePad("Pad1", scene, mats, root, -18, 12, 10);
-  createConcretePad("Pad2", scene, mats, root, 22, -8, 8);
-  createConcretePad("Pad3", scene, mats, root, -12, -22, 7);
+  const pad1 = createConcretePad("Pad1", scene, mats, root, -18, 12, 10);
+  pad1.label = "Pad A";
+  pad1.marked = true;
+  pads.push(pad1);
+
+  const pad2 = createConcretePad("Pad2", scene, mats, root, 22, -8, 8);
+  pad2.label = "Pad B";
+  pad2.marked = true;
+  pads.push(pad2);
+
+  const pad3 = createConcretePad("Pad3", scene, mats, root, -12, -22, 7);
+  pad3.label = "Pad 3";
+  pads.push(pad3);
 
   createShed(scene, mats, root, -28, 28);
 
-  createCrate("Crate1", scene, mats, root, new Vector3(-16, 0, 10));
-  createCrate("Crate2", scene, mats, root, new Vector3(-14.5, 0, 11.2), 0.85);
-  createCrate("Crate3", scene, mats, root, new Vector3(20, 0, -6), 1.1);
-  createCrate("Crate4", scene, mats, root, new Vector3(21.5, 0, -7.5), 0.7);
+  // Pickable crates near pads
+  loads.push(createCrate("Crate1", scene, mats, root, new Vector3(-16, 0, 10)));
+  loads.push(
+    createCrate("Crate2", scene, mats, root, new Vector3(-14.5, 0, 11.2), 0.85)
+  );
+  loads.push(
+    createCrate("Crate3", scene, mats, root, new Vector3(20, 0, -6), 1.1)
+  );
+  loads.push(
+    createCrate("Crate4", scene, mats, root, new Vector3(21.5, 0, -7.5), 0.7)
+  );
 
-  createBarrel("Barrel1", scene, mats, root, new Vector3(-10, 0, -20));
+  // One pickable barrel + decorative barrels
+  const b1 = createBarrel(
+    "Barrel1",
+    scene,
+    mats,
+    root,
+    new Vector3(-10, 0, -20),
+    true
+  );
+  if (b1) loads.push(b1);
   createBarrel("Barrel2", scene, mats, root, new Vector3(-9.1, 0, -20.8));
   createBarrel("Barrel3", scene, mats, root, new Vector3(24, 0, -10));
 
-  // Safety cones around crane pad
   const coneRing: [number, number][] = [
     [14, 14],
     [14, -14],
@@ -210,5 +284,5 @@ export function createProps(scene: Scene, mats: SharedMaterials): TransformNode 
   createPadMarker("A", scene, mats, root, -18, 12);
   createPadMarker("B", scene, mats, root, 22, -8);
 
-  return root;
+  return { root, loads, pads };
 }

@@ -126,7 +126,7 @@
         bottom: 24px;
         display: grid;
         grid-template-columns: repeat(3, 56px);
-        grid-template-rows: repeat(3, 48px);
+        grid-template-rows: repeat(3, 48px) auto;
         gap: 6px;
         pointer-events: auto;
         user-select: none;
@@ -185,9 +185,31 @@
       #crane-pad .btn-lower { grid-column: 1; grid-row: 2; }
       #crane-pad .btn-in    { grid-column: 2; grid-row: 2; }
       #crane-pad .btn-left  { grid-column: 3; grid-row: 2; }
-      #crane-pad .pad-label {
+      #crane-pad .btn-grab {
         grid-column: 1 / -1;
         grid-row: 3;
+        min-height: 44px;
+        flex-direction: row;
+        gap: 8px;
+        background: rgba(74, 144, 200, 0.92);
+        color: #fff;
+      }
+      #crane-pad .btn-grab .key {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      #crane-pad .btn-grab.holding {
+        background: rgba(232, 184, 74, 0.95);
+        color: #3a3018;
+      }
+      #crane-pad .btn-grab.holding .key {
+        color: #5a4820;
+      }
+      #crane-pad .btn-grab.active {
+        background: rgba(74, 144, 200, 1);
+      }
+      #crane-pad .pad-label {
+        grid-column: 1 / -1;
+        grid-row: 4;
         font-size: 0.65rem;
         color: rgba(44, 58, 69, 0.55);
         text-align: center;
@@ -197,12 +219,12 @@
       @media (max-width: 640px) {
         #crane-pad {
           grid-template-columns: repeat(3, 48px);
-          grid-template-rows: repeat(3, 44px);
+          grid-template-rows: repeat(3, 44px) auto;
           right: 10px;
           bottom: 90px;
         }
         #hud-hint {
-          bottom: 210px;
+          bottom: 250px;
           font-size: 0.68rem;
         }
       }
@@ -221,9 +243,9 @@
       </div>
       <div id="hud-objective" class="panel">
         <div class="label">Objective</div>
-        <div class="text">Practice slew, trolley, and hoist. No loads yet.</div>
+        <div class="text">Pick up a crate and place it on Pad A</div>
       </div>
-      <div id="hud-hint">A/D slew · W/S trolley · R/F hoist · Drag orbit · Scroll zoom</div>
+      <div id="hud-hint">A/D slew · W/S trolley · R/F hoist · Space grab/release · Drag orbit · Scroll zoom</div>
       <div id="crane-pad" class="panel" aria-label="Crane controls">
         <button type="button" class="pad-btn btn-raise" data-axis="hoist" data-dir="1" title="Raise hook (R)">
           Raise<span class="key">R</span>
@@ -243,7 +265,10 @@
         <button type="button" class="pad-btn btn-left" data-axis="slew" data-dir="-1" title="Slew left (A)">
           Left<span class="key">A</span>
         </button>
-        <div class="pad-label">Hold buttons · camera drag free</div>
+        <button type="button" id="btn-grab" class="pad-btn btn-grab" title="Grab nearby load (Space)">
+          Grab<span class="key">Space</span>
+        </button>
+        <div class="pad-label">Hold move · Space grab · camera free</div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

@@ -16,4 +16,9 @@ export {
   type CraneController,
   type CraneInput,
 } from "./craneController";
-export { initCraneControls, getCraneInput } from "./controls";
+export {
+  initCraneControls,
+  getCraneInput,
+  consumeGrabPress,
+  queueGrabPress,
+} from "./controls";

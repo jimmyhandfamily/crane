@@ -1,6 +1,7 @@
 /**
- * Keyboard + on-screen hold buttons for M1 crane controls.
+ * Keyboard + on-screen hold buttons for crane controls.
  * Does not bind left-drag (camera keeps orbit).
+ * M2: Space / Grab button edge-triggers grab/release.
  */
 
 import type { CraneInput } from "./craneController";
@@ -18,6 +19,9 @@ const keysDown = new Set<string>();
 /** Buttons / keys contribute to these; merged each frame. */
 const held: HeldAxes = { slew: 0, trolley: 0, hoist: 0 };
 const buttonHeld: HeldAxes = { slew: 0, trolley: 0, hoist: 0 };
+
+/** Edge-triggered grab/release requests consumed by the game loop. */
+let grabQueued = false;
 
 function codeToAxis(code: string): { axis: Axis; dir: number } | null {
   switch (code) {
@@ -45,7 +49,6 @@ function refreshKeyboardAxes(): void {
   for (const code of keysDown) {
     const m = codeToAxis(code);
     if (!m) continue;
-    // Last conflicting key wins by summing then clamping later
     held[m.axis] += m.dir;
   }
 }
@@ -56,6 +59,14 @@ function clampAxis(v: number): number {
   return 0;
 }
 
+function isTypingTarget(t: EventTarget | null): boolean {
+  return (
+    t instanceof HTMLInputElement ||
+    t instanceof HTMLTextAreaElement ||
+    (t instanceof HTMLElement && t.isContentEditable)
+  );
+}
+
 export function getCraneInput(): CraneInput {
   return {
     slew: clampAxis(held.slew + buttonHeld.slew),
@@ -64,11 +75,18 @@ export function getCraneInput(): CraneInput {
   };
 }
 
-function bindHoldButton(
-  el: HTMLElement,
-  axis: Axis,
-  dir: number
-): void {
+/** Consume a pending grab/release press (Space or Grab button). */
+export function consumeGrabPress(): boolean {
+  if (!grabQueued) return false;
+  grabQueued = false;
+  return true;
+}
+
+export function queueGrabPress(): void {
+  grabQueued = true;
+}
+
+function bindHoldButton(el: HTMLElement, axis: Axis, dir: number): void {
   const press = (e: Event) => {
     e.preventDefault();
     buttonHeld[axis] = dir;
@@ -84,7 +102,17 @@ function bindHoldButton(
   el.addEventListener("pointerup", release);
   el.addEventListener("pointerleave", release);
   el.addEventListener("pointercancel", release);
-  // Prevent context menu / focus steal on long-press
+  el.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
+function bindGrabButton(el: HTMLElement): void {
+  const fire = (e: Event) => {
+    e.preventDefault();
+    queueGrabPress();
+    el.classList.add("active");
+    window.setTimeout(() => el.classList.remove("active"), 120);
+  };
+  el.addEventListener("pointerdown", fire);
   el.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
@@ -95,16 +123,16 @@ function bindHoldButton(
 export function initCraneControls(): void {
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
-    if (!codeToAxis(e.code)) return;
-    // Don't steal typing from inputs
-    const t = e.target;
-    if (
-      t instanceof HTMLInputElement ||
-      t instanceof HTMLTextAreaElement ||
-      (t instanceof HTMLElement && t.isContentEditable)
-    ) {
+    if (isTypingTarget(e.target)) return;
+
+    // Space = grab/release (M2)
+    if (e.code === "Space") {
+      e.preventDefault();
+      queueGrabPress();
       return;
     }
+
+    if (!codeToAxis(e.code)) return;
     keysDown.add(e.code);
     refreshKeyboardAxes();
   });
@@ -121,6 +149,7 @@ export function initCraneControls(): void {
     buttonHeld.slew = 0;
     buttonHeld.trolley = 0;
     buttonHeld.hoist = 0;
+    grabQueued = false;
     document
       .querySelectorAll("#crane-pad .pad-btn.active")
       .forEach((b) => b.classList.remove("active"));
@@ -136,4 +165,7 @@ export function initCraneControls(): void {
     if (axis !== "slew" && axis !== "trolley" && axis !== "hoist") return;
     bindHoldButton(btn, axis, dir);
   });
+
+  const grabBtn = document.getElementById("btn-grab");
+  if (grabBtn) bindGrabButton(grabBtn);
 }
