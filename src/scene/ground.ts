@@ -8,8 +8,9 @@ import {
 import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
 import { box, groundPlane, group } from "./meshHelpers";
+import { LOAD_PAD_LAYOUT } from "./props";
 
-/** Flat zones: crane pad, gravel roads/aprons — height stays ~0. */
+/** Flat zones: crane pad, gravel roads/aprons, load pads — height stays ~0. */
 function isFlatZone(x: number, z: number): boolean {
   // Crane work pad ±14
   if (Math.abs(x) < 15 && Math.abs(z) < 15) return true;
@@ -22,9 +23,11 @@ function isFlatZone(x: number, z: number): boolean {
   if (z > YARD_SIZE / 2 - 8 && Math.abs(x) < 6) return true;
   // Shed spur
   if (Math.abs(z - 28) < 4 && x > -44 && x < -28) return true;
-  // Load pads area (props pads roughly ±20–35)
-  if (x > 16 && x < 36 && z > 8 && z < 28) return true;
-  if (x > -36 && x < -16 && z > -28 && z < -8) return true;
+  // Load pads from props.ts — flat rect around each center ±(halfSize+2)
+  for (const pad of LOAD_PAD_LAYOUT) {
+    const extent = pad.size / 2 + 2;
+    if (Math.abs(x - pad.x) <= extent && Math.abs(z - pad.z) <= extent) return true;
+  }
   return false;
 }
 

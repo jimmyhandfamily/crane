@@ -61,20 +61,21 @@ export function createPerimeterTrees(scene: Scene, mats: SharedMaterials): Objec
   scene.add(root);
   const half = YARD_SIZE / 2;
 
-  // Clusters around fence line / background — avoid roads & crane pad
+  // Thinned perimeter clusters (~25–40) — sit clear of fence line & crane silhouette
+  const fenceClear = 6; // keep trunks inside fence with breathing room
   const clusters: { cx: number; cz: number; count: number; spread: number }[] = [
-    { cx: half - 3, cz: -half + 8, count: 7, spread: 5 },
-    { cx: half - 4, cz: 12, count: 6, spread: 4.5 },
-    { cx: half - 5, cz: half - 12, count: 8, spread: 5.5 },
-    { cx: 20, cz: half - 3, count: 5, spread: 4 },
-    { cx: -18, cz: half - 4, count: 4, spread: 3.5 },
-    { cx: -half + 4, cz: half - 10, count: 6, spread: 4 },
-    { cx: -half + 5, cz: -20, count: 7, spread: 5 },
-    { cx: -half + 6, cz: -half + 10, count: 8, spread: 5.5 },
-    { cx: -10, cz: -half + 3, count: 6, spread: 4.5 },
-    { cx: 25, cz: -half + 4, count: 7, spread: 5 },
-    { cx: half - 8, cz: -25, count: 5, spread: 4 },
-    { cx: 42, cz: 40, count: 4, spread: 3.5 },
+    { cx: half - fenceClear - 2, cz: -half + 12, count: 3, spread: 4 },
+    { cx: half - fenceClear - 3, cz: 10, count: 3, spread: 3.5 },
+    { cx: half - fenceClear - 4, cz: half - 14, count: 3, spread: 4 },
+    { cx: 18, cz: half - fenceClear - 2, count: 3, spread: 3.5 },
+    { cx: -16, cz: half - fenceClear - 3, count: 2, spread: 3 },
+    { cx: -half + fenceClear + 3, cz: half - 14, count: 3, spread: 3.5 },
+    { cx: -half + fenceClear + 4, cz: -18, count: 3, spread: 4 },
+    { cx: -half + fenceClear + 5, cz: -half + 14, count: 3, spread: 4 },
+    { cx: -8, cz: -half + fenceClear + 2, count: 3, spread: 3.5 },
+    { cx: 22, cz: -half + fenceClear + 3, count: 3, spread: 4 },
+    { cx: half - fenceClear - 6, cz: -22, count: 2, spread: 3.5 },
+    { cx: 38, cz: 36, count: 2, spread: 3 },
   ];
 
   let idx = 0;
@@ -84,10 +85,11 @@ export function createPerimeterTrees(scene: Scene, mats: SharedMaterials): Objec
       const r = (0.3 + ((i * 17) % 10) / 10) * c.spread;
       const x = c.cx + Math.cos(a) * r;
       const z = c.cz + Math.sin(a) * r;
-      // Skip road corridors
+      // Skip road corridors, crane pad, and stay clear of fence line
       if (Math.abs(x + 42) < 8 && z > -2 && z < 48) continue;
       if (Math.abs(z - 42) < 8 && x > -48 && x < 10) continue;
-      if (Math.abs(x) < 16 && Math.abs(z) < 16) continue;
+      if (Math.abs(x) < 18 && Math.abs(z) < 18) continue;
+      if (Math.abs(x) > half - fenceClear || Math.abs(z) > half - fenceClear) continue;
       const scale = 0.85 + ((i * 13 + idx) % 7) * 0.08;
       createTree(`Tree_${idx}`, mats, root, x, z, scale, idx + i);
       idx++;

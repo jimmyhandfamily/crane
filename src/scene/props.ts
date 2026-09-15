@@ -5,6 +5,21 @@ import type { LoadItem, PadZone } from "../loads/types";
 import { CRATE_MASS_KG, BARREL_MASS_KG } from "../loads/types";
 import { box, cyl, group } from "./meshHelpers";
 
+
+/** Load-pad layout (shared with ground flat-mask). size = full width. */
+export const LOAD_PAD_LAYOUT: ReadonlyArray<{
+  id: string;
+  label: string;
+  x: number;
+  z: number;
+  size: number;
+  marked?: boolean;
+}> = [
+  { id: "Pad1", label: "Pad A", x: -18, z: 12, size: 10, marked: true },
+  { id: "Pad2", label: "Pad B", x: 22, z: -8, size: 8, marked: true },
+  { id: "Pad3", label: "Pad 3", x: -12, z: -22, size: 7 },
+];
+
 export interface PropsResult {
   root: Object3D;
   loads: LoadItem[];
@@ -435,19 +450,12 @@ export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
   const loads: LoadItem[] = [];
   const pads: PadZone[] = [];
 
-  const pad1 = createConcretePad("Pad1", mats, root, -18, 12, 10);
-  pad1.label = "Pad A";
-  pad1.marked = true;
-  pads.push(pad1);
-
-  const pad2 = createConcretePad("Pad2", mats, root, 22, -8, 8);
-  pad2.label = "Pad B";
-  pad2.marked = true;
-  pads.push(pad2);
-
-  const pad3 = createConcretePad("Pad3", mats, root, -12, -22, 7);
-  pad3.label = "Pad 3";
-  pads.push(pad3);
+  for (const def of LOAD_PAD_LAYOUT) {
+    const pad = createConcretePad(def.id, mats, root, def.x, def.z, def.size);
+    pad.label = def.label;
+    pad.marked = !!def.marked;
+    pads.push(pad);
+  }
 
   createShed(mats, root, -28, 28);
   createYardFence(mats, root);
@@ -476,8 +484,10 @@ export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
     createCone(`Cone${i}`, mats, root, cx, cz);
   });
 
-  createPadMarker("A", mats, root, -18, 12);
-  createPadMarker("B", mats, root, 22, -8);
+  for (const def of LOAD_PAD_LAYOUT) {
+    if (def.label === "Pad A") createPadMarker("A", mats, root, def.x, def.z);
+    if (def.label === "Pad B") createPadMarker("B", mats, root, def.x, def.z);
+  }
 
   // Pipe stacks + pallet (away from roads/pads)
   createPipeStack("PipeStack1", mats, root, 30, 18);
