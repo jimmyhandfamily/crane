@@ -1,6 +1,6 @@
 # Crane — Three.js Port Status
 
-**Date:** 2026-09-14  
+**Date:** 2026-09-15  
 **Path:** `/workspace/crane`
 
 ## Build
@@ -13,81 +13,48 @@
 
 Packages: `three@^0.186`, `@types/three`, `vite@^6.3.5`, `typescript@~5.8.3`
 
-## Improvements 6–10 (this session)
+## FINAL realism pass (tonight)
 
-### 6. Cab camera toggle
-- Key **C** switches orbit jobsite cam ↔ cab-ish view near `Cab` node looking along boom (+Z slewing).
-- C again restores saved orbit position/target; OrbitControls disabled while in cab.
-- HUD hint includes `C cab cam`.
+### Crane (less toy-like from high cam)
+- Kept open lattice mast / ladder / hollow boom; thinner braces (0.08 / 0.07)
+- **Sheaves:** jib-tip pulley + dual trolley sheaves + hook sheave
+- **Multi-part cable:** `Cable` + `CableFall2`/`CableFall3` (scaled together in `placeHoist`)
+- **Trolley wheels** on boom chords
+- **Cab:** window frames, door+handle, roof AC, seat/console interior, rails
+- **Lattice counter-jib** + stacked counterweight plates/straps/label
+- **Mast→collar tie-ins** (yellow stubs + dark gussets)
+- Hex lock: `#E5B03A` / `#525C66` / `#4A7A8E` / `#3A424A` (`steelDark`)
+- Required node names + controls/physics unchanged
 
-### 7. Gate opens for trucks
-- `scene/yardGates.ts`: west entry + north exit gate leaves (fence gap).
-- Opens when AmbientTruck/Mixer within ~14 m; closes after ~22 m.
-- Driven each frame from `ambientTraffic.getTruckPoses()`.
+### Roads (FIRST PRIORITY — coherent site loop)
+- Continuous gravel: **W gate apron (10×8) → west lane (x=-42) → NW corner → N connector (z=42) → N gate apron (8×10)**
+- **Shed spur** (~5.5 m) off west lane at z=28; parked van on spur only
+- Movers follow **loop path only** (no spur, no pad cut-through)
+- Lane ~6.5 m, center strip, shoulders, tire tracks, slight raise
+- No orphan strips; grass corridors cleared off road path
+- Berm strips along west/north outer shoulders
 
-### 8. Idle excavator
-- `AmbientExcavator1` low-poly excavator parked SE yard edge.
-- Light idle boom/bucket bob.
+### Trucks (logic + speed)
+- Max speeds **4.5–7 m/s** (site pace); shed zone ~45% of max
+- Accel ~2.2 / decel ~3.6 m/s²; yaw lerp toward path
+- **Pause at west/north gates until open ≥0.72** (`yardGates.getOpenAmounts()`)
+- Shed pause ~2–4 s; staggered start waits (1.5 / 18 / 36 / 55 s)
+- Optional **brake lights** (per-truck cloned mats, light on decel/stop)
+- Main loop: gates update from poses → traffic honors open amounts
 
-### 9. Dust puff on load place
-- `scene/dustPuffs.ts`: 3 expanding translucent discs on release (ground/pad).
-- Auto-fade ~0.55–0.8 s; wired from load manager.
+### Ground / props
+- Crane pad **joints + oil stains**; extra dirt mottles (road-clear)
+- Shed: corner trim, door handle, foundation skirt
+- Crates: top rim + label block; barrels: lid + hoops + label; cones: stripe + base
+- Fence **caps**; pipe stacks + pallets; pad surface joints
+- Workers: feet on ground (`baseHipY` 0.98, milder bob); paths off N road
 
-### 10. Junior rank
-- After Lesson 2: title → **Junior Operator**, rank → `Junior` (persisted in `crane.career.v1`).
-- Migrates prior “Training Yard — Graduated” saves.
-- HUD title + role update on win and on load.
+### HUD
+- Kept slim (no center blocking card)
 
-## Improvements 1–5 (prior)
+## Prior session notes
 
-### 1. localStorage persist
-- Key `crane.career.v1`: day rate, jobsCompleted, title, lesson1/2 flags, padA/padB placed.
-- Restored on load; HUD title, pay tease, and objective sync from career state.
-
-### 2. Lesson 2
-- Lesson 1: place a crate on **Pad A** → pay bump + title → “Training Yard — Lesson 2”.
-- Lesson 2: both Pad A and Pad B → Junior Operator + second pay bump.
-
-### 3. Swing warning
-- `getSwayAngle()`; threshold `SWAY_WARN_ANGLE` ≈ 3.2°.
-- Loaded + high sway → load meter `data-band="swing"`, **“Swing high”**.
-
-### 4. Soft magnet snap
-- Gentle world-XZ nudge via `physics.applySoftMagnet` when nearly aligned.
-
-### 5. Sky
-- Canvas vertical gradient + 3 soft cloud planes; fog haze preserved.
-
-## Structure pass (prior)
-
-- **Mast:** open 2.2×2.2 m square lattice; yellow chords; X-braces; `mastTopY` unchanged.
-- **Ladder / walkway (+Z):** rails, rungs, `CabWalkway`.
-- **Boom:** hollow lattice; `JibTip` open end frame.
-- **UI:** steel-neutral Grab; pad `z-index: 30`.
-- **Hook blob shadow:** surface-aware Y (ground / pad / crate top).
-
-## Grab aim highlight
-
-- Within `ATTACH_DISTANCE` 1.25 m / `ATTACH_HORIZONTAL_MAX` 1.1 m: emissive + outline.
-
-## Ambient concrete mixer
-
-- `AmbientMixer1` on gravel path, `startWait: 33`.
-
-## Gentle wind
-
-- Strength 0.15–0.35 (empty-hook accel); direction drifts ~0.06 rad/s.
-
-## Physics (mild)
-
-| Constant | Value |
-|----------|-------|
-| `SWAY_DAMPING_ZETA` | 0.48 |
-| `SWAY_ACCEL_GAIN` | 0.30 |
-| `SWAY_LOAD_GAIN` | 0.12 |
-| `SWAY_MAX_ANGLE` | 7° |
-| `SWAY_WARN_ANGLE` | ~3.2° |
-| `SOFT_MAGNET_MAX_NUDGE` | 0.035 m |
+Cab cam (C), gate opens, idle excavator, dust puffs, Junior rank, career persist, Lesson 2, swing warn, soft magnet, sky, mild sway physics — unchanged.
 
 ## Verify
 

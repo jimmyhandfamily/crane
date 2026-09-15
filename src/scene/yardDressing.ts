@@ -136,7 +136,7 @@ function createWorker(
   shadow.scale.set(shadowDiam, shadowDiam, 1);
 
   const hips = group(`${name}_Hips`, root);
-  const baseHipY = 0.92;
+  const baseHipY = 0.98;
   hips.position.y = baseHipY;
 
   box(`${name}_Pelvis`, 0.42, 0.28, 0.28, coveralls, hips);
@@ -232,7 +232,7 @@ function applyWalkPose(limbs: WorkerLimbs, moving: boolean, dt: number): void {
   limbs.armL.rotation.x = sinOpp * 0.45;
   limbs.armR.rotation.x = sin * 0.45;
 
-  const bob = moving ? Math.abs(Math.sin(phase * 2)) * 0.04 : 0;
+  const bob = moving ? Math.abs(Math.sin(phase * 2)) * 0.025 : 0;
   limbs.hips.position.y = limbs.baseHipY + bob;
 }
 
@@ -308,6 +308,11 @@ export function createYardDressing(
   createBerm("DirtBerm3", mats, root, half - 10, -half + 6, 0.7);
   createBerm("DirtBerm4", mats, root, 28, 32, 0.55);
   createBerm("DirtBerm5", mats, root, -8, -half + 5, 1.05);
+  // Berms along road shoulders (west lane outer + north connector outer)
+  createBerm("RoadBermW1", mats, root, -48, 14, 0.55);
+  createBerm("RoadBermW2", mats, root, -48, 30, 0.65);
+  createBerm("RoadBermN1", mats, root, -28, 48, 0.5);
+  createBerm("RoadBermN2", mats, root, -12, 48, 0.55);
 
   const workerDefs: {
     name: string;
@@ -335,10 +340,10 @@ export function createYardDressing(
       variant: "B",
       shadowDiam: 0.95,
       waypoints: [
-        new Vector3(-20, 0, 40),
-        new Vector3(-5, 0, 40),
-        new Vector3(8, 0, 38),
-        new Vector3(-8, 0, 38),
+        new Vector3(-20, 0, 36),
+        new Vector3(-5, 0, 35),
+        new Vector3(8, 0, 34),
+        new Vector3(-8, 0, 35),
       ],
       speed: 1.2,
       startU: 0.3,

@@ -9,6 +9,9 @@ import { box, cyl, group, strut, torus } from "../scene/meshHelpers";
  * CraneRoot, Tracks, Turntable, Counterweight, Cab, CabGlass,
  * BoomRoot, Boom, JibTip, Cable, Hook,
  * OutriggerN, OutriggerE, OutriggerS, OutriggerW
+ *
+ * FINAL realism: open lattice mast/boom, sheaves, multi-part cable,
+ * richer cab, lattice counter-jib, mast→collar tie-ins.
  */
 
 export const BOOM_LENGTH = 36;
@@ -54,7 +57,7 @@ export function createPlaceholderCrane(
       1.35,
       0.55,
       8.6,
-      mats.steel,
+      mats.steelDark,
       Tracks
     );
     shoe.position.set(side * 2.55, 0.28, 0);
@@ -84,12 +87,12 @@ export function createPlaceholderCrane(
     root.position.set(o.x, 0.25, o.z);
     root.rotation.y = o.rotY;
 
-    box(`${o.name}_Beam`, 0.55, 0.4, outriggerLen, mats.steel, root);
+    box(`${o.name}_Beam`, 0.45, 0.32, outriggerLen, mats.steel, root);
     const outer = box(
       `${o.name}_Outer`,
-      0.7,
-      0.28,
-      1.4,
+      0.55,
+      0.22,
+      1.2,
       mats.craneYellow,
       root
     );
@@ -110,22 +113,21 @@ export function createPlaceholderCrane(
       1.65,
       0.08,
       1.65,
-      mats.steel,
+      mats.steelDark,
       root
     );
     padLip.position.set(0, -0.05, outriggerLen * 0.48);
   }
 
-  // --- Open square lattice mast (no solid MastSection boxes) ---
+  // --- Open square lattice mast ---
   const mastBaseY = 0.8;
   const bayH = 3.0;
-  // ~12 bays × 3 m ≈ CRANE_HEIGHT - 4 so Turntable/Cab/~40 m stay valid
   const bayCount = Math.round((CRANE_HEIGHT - 4) / bayH);
   const mastHeight = bayCount * bayH;
   const mastTopY = mastBaseY + mastHeight;
-  const chordHalf = 1.1; // footprint 2.2×2.2, chords at ±1.1
+  const chordHalf = 1.1;
   const chordSize = 0.18;
-  const braceSize = 0.1;
+  const braceSize = 0.08; // less chunky
   const corners: [number, number][] = [
     [-chordHalf, -chordHalf],
     [chordHalf, -chordHalf],
@@ -148,19 +150,17 @@ export function createPlaceholderCrane(
     chord.position.set(cx, mastBaseY + mastHeight / 2, cz);
   }
 
-  // Face edge pairs for rings / X-braces: +Z, -Z, +X, -X
   const faces: { a: number; b: number; label: string }[] = [
-    { a: 3, b: 2, label: "PZ" }, // +Z
-    { a: 0, b: 1, label: "MZ" }, // -Z
-    { a: 1, b: 2, label: "PX" }, // +X
-    { a: 0, b: 3, label: "MX" }, // -X
+    { a: 3, b: 2, label: "PZ" },
+    { a: 0, b: 1, label: "MZ" },
+    { a: 1, b: 2, label: "PX" },
+    { a: 0, b: 3, label: "MX" },
   ];
 
   for (let i = 0; i < bayCount; i++) {
     const y0 = mastBaseY + i * bayH;
     const y1 = y0 + bayH;
 
-    // Horizontal ring at top of each bay (and base ring on first bay)
     const ringYs = i === 0 ? [y0, y1] : [y1];
     for (const ry of ringYs) {
       for (const face of faces) {
@@ -181,7 +181,6 @@ export function createPlaceholderCrane(
       }
     }
 
-    // X-brace pair per face per bay
     for (const face of faces) {
       const [ax, az] = corners[face.a];
       const [bx, bz] = corners[face.b];
@@ -261,10 +260,19 @@ export function createPlaceholderCrane(
   const walkRailR = box("CabWalkwayRail_R", 0.06, 0.55, 1.5, mats.steel, Mast);
   walkRailR.position.set(1.1, mastTopY + 0.25, chordHalf + 0.85);
 
+  // --- Turntable + mast tie-ins to collar ---
   const Turntable = cyl("Turntable", 1.75, 1.75, 1.2, mats.steel, CraneRoot, 24);
   Turntable.position.set(0, mastTopY + 0.6, 0);
 
-  const collar = cyl("TurntableCollar", 2.075, 2.075, 0.18, mats.craneYellow, Turntable, 28);
+  const collar = cyl(
+    "TurntableCollar",
+    2.075,
+    2.075,
+    0.18,
+    mats.craneYellow,
+    Turntable,
+    28
+  );
   collar.position.set(0, 0.55, 0);
 
   const collarInner = cyl(
@@ -272,17 +280,54 @@ export function createPlaceholderCrane(
     1.875,
     1.875,
     0.12,
-    mats.steel,
+    mats.steelDark,
     Turntable,
     28
   );
   collarInner.position.set(0, 0.62, 0);
 
+  // Mast chords tie into collar with short yellow stubs + steel gussets
+  for (let c = 0; c < corners.length; c++) {
+    const [cx, cz] = corners[c];
+    const tie = box(
+      `MastCollarTie_${c}`,
+      0.16,
+      0.55,
+      0.16,
+      mats.craneYellow,
+      Mast
+    );
+    tie.position.set(cx, mastTopY + 0.28, cz);
+    const gusset = box(
+      `MastCollarGusset_${c}`,
+      0.28,
+      0.1,
+      0.28,
+      mats.steelDark,
+      Mast
+    );
+    gusset.position.set(cx * 0.92, mastTopY + 0.52, cz * 0.92);
+  }
+
   const slewing = group("SlewingAssembly", CraneRoot);
   slewing.position.set(0, mastTopY + 1.2, 0);
 
+  // --- Richer cab: frames, door, AC, interior hint, rails ---
   const Cab = box("Cab", 2.5, 2.25, 2.7, mats.craneYellow, slewing);
   Cab.position.set(0, 1.3, 1.85);
+
+  // Window frames (dark steel mullions)
+  const frameT = 0.07;
+  for (const [fx, fy, fz, fw, fh, fd, n] of [
+    [0, 1.55, 3.08, 2.0, frameT, 0.06, "CabFrameTop"],
+    [0, 1.0, 3.08, 2.0, frameT, 0.06, "CabFrameBot"],
+    [-0.95, 1.55, 3.08, frameT, 1.2, 0.06, "CabFrameL"],
+    [0.95, 1.55, 3.08, frameT, 1.2, 0.06, "CabFrameR"],
+    [0, 1.55, 3.08, frameT, 1.2, 0.06, "CabFrameMid"],
+  ] as const) {
+    const fr = box(n, fw, fh, fd, mats.steelDark, slewing);
+    fr.position.set(fx, fy, fz);
+  }
 
   const cabRoof = box("CabRoofOverhang", 2.85, 0.16, 3.05, mats.craneYellow, slewing);
   cabRoof.position.set(0, 2.52, 1.9);
@@ -302,35 +347,150 @@ export function createPlaceholderCrane(
     sideGlass.position.set(sx * 1.28, 1.55, 1.9);
   }
 
-  const Counterweight = box("Counterweight", 3.3, 0.45, 2.5, mats.steel, slewing);
-  Counterweight.position.set(0, 0.45, -6);
+  // Door hint (side panel + handle)
+  const door = box("CabDoor", 0.08, 1.7, 1.05, mats.steelDark, slewing);
+  door.position.set(-1.3, 1.35, 1.55);
+  const doorHandle = box("CabDoorHandle", 0.1, 0.08, 0.22, mats.steel, slewing);
+  doorHandle.position.set(-1.36, 1.35, 1.35);
 
-  for (let p = 1; p <= 3; p++) {
-    const plate = box(
-      `CounterPlate_${p}`,
-      3.15 - p * 0.08,
-      0.38,
-      2.35 - p * 0.06,
-      p % 2 === 0 ? mats.craneYellow : mats.steel,
-      Counterweight
+  // Roof AC unit
+  const ac = box("CabAC", 0.9, 0.35, 0.7, mats.steelDark, slewing);
+  ac.position.set(0.55, 2.78, 1.5);
+  const acVent = box("CabACVent", 0.7, 0.08, 0.55, mats.steel, slewing);
+  acVent.position.set(0.55, 2.98, 1.5);
+
+  // Interior seat / console hints (visible through glass)
+  const seat = box("CabSeat", 0.55, 0.55, 0.55, mats.steelDark, slewing);
+  seat.position.set(0.15, 1.05, 1.55);
+  const console = box("CabConsole", 0.7, 0.35, 0.4, mats.steel, slewing);
+  console.position.set(0.15, 1.15, 2.35);
+
+  // Cab railings
+  for (const sx of [-1, 1] as const) {
+    const rail = box(
+      `CabRail_${sx > 0 ? "R" : "L"}`,
+      0.05,
+      0.45,
+      2.4,
+      mats.steel,
+      slewing
     );
-    plate.position.set(0, 0.45 + p * 0.42, 0);
+    rail.position.set(sx * 1.4, 2.35, 1.85);
+  }
+  const railFront = box("CabRailFront", 2.7, 0.45, 0.05, mats.steel, slewing);
+  railFront.position.set(0, 2.35, 3.2);
+
+  // --- Lattice counter-jib + counterweight detail ---
+  const CounterJib = group("CounterJib", slewing);
+  CounterJib.position.set(0, 2.35, -4.2);
+
+  const cjLen = 7.5;
+  const cjHalf = 0.38;
+  const cjChord = 0.1;
+  const cjBrace = 0.07;
+  const cjCorners: [number, number][] = [
+    [-cjHalf, -cjHalf],
+    [cjHalf, -cjHalf],
+    [cjHalf, cjHalf],
+    [-cjHalf, cjHalf],
+  ];
+  for (let c = 0; c < cjCorners.length; c++) {
+    const [cx, cy] = cjCorners[c];
+    const chord = box(
+      `CounterJibChord_${c}`,
+      cjChord,
+      cjChord,
+      cjLen,
+      mats.craneYellow,
+      CounterJib
+    );
+    chord.position.set(cx, cy, 0);
+  }
+  const cjFrames = 5;
+  for (let i = 0; i < cjFrames; i++) {
+    const z = -cjLen / 2 + 0.6 + i * ((cjLen - 1.2) / Math.max(cjFrames - 1, 1));
+    strut(
+      `CounterJibXA_${i}`,
+      -cjHalf,
+      -cjHalf,
+      z,
+      cjHalf,
+      cjHalf,
+      z,
+      cjBrace,
+      mats.steel,
+      CounterJib
+    );
+    strut(
+      `CounterJibXB_${i}`,
+      cjHalf,
+      -cjHalf,
+      z,
+      -cjHalf,
+      cjHalf,
+      z,
+      cjBrace,
+      mats.steel,
+      CounterJib
+    );
+    strut(
+      `CounterJibVT_${i}`,
+      -cjHalf,
+      cjHalf,
+      z,
+      cjHalf,
+      cjHalf,
+      z,
+      cjBrace,
+      mats.steel,
+      CounterJib
+    );
+    strut(
+      `CounterJibVB_${i}`,
+      -cjHalf,
+      -cjHalf,
+      z,
+      cjHalf,
+      -cjHalf,
+      z,
+      cjBrace,
+      mats.steel,
+      CounterJib
+    );
   }
 
-  const counterBeam = box("CounterBeam", 0.7, 0.55, 8.2, mats.craneYellow, slewing);
-  counterBeam.position.set(0, 2.25, -4);
+  const Counterweight = box("Counterweight", 3.3, 0.45, 2.5, mats.steel, slewing);
+  Counterweight.position.set(0, 0.45, -6.4);
+
+  for (let p = 1; p <= 4; p++) {
+    const plate = box(
+      `CounterPlate_${p}`,
+      3.15 - p * 0.06,
+      0.36,
+      2.35 - p * 0.05,
+      p % 2 === 0 ? mats.craneYellow : mats.steelDark,
+      Counterweight
+    );
+    plate.position.set(0, 0.4 + p * 0.4, 0);
+  }
+  // Straps / tie rods on stack
+  for (const sx of [-1.2, 1.2] as const) {
+    const strap = box("CounterStrap", 0.12, 1.7, 0.12, mats.steel, Counterweight);
+    strap.position.set(sx, 1.0, 0);
+  }
+  const cwLabel = box("CounterLabel", 0.9, 0.35, 0.06, mats.craneYellow, Counterweight);
+  cwLabel.position.set(0, 0.9, 1.28);
 
   const BoomRoot = group("BoomRoot", slewing);
   BoomRoot.position.set(0, 2.4, 0);
 
   const boomLength = BOOM_LENGTH;
-  // Hollow lattice boom (group, not solid box)
   const Boom = group("Boom", BoomRoot);
   Boom.position.set(0, 0, boomLength / 2 + 1);
 
-  const boomHalf = 0.45; // 0.9×0.9 section
-  const boomChord = 0.12;
-  const boomBrace = 0.09;
+  const boomHalf = 0.45;
+  const boomChord = 0.11;
+  const boomBrace = 0.07; // less chunky
   const boomZ0 = -boomLength / 2;
   const boomCorners: [number, number][] = [
     [-boomHalf, -boomHalf],
@@ -352,14 +512,13 @@ export function createPlaceholderCrane(
     chord.position.set(cx, cy, 0);
   }
 
-  const xFrames = 7;
+  const xFrames = 8;
   const frameZs: number[] = [];
   for (let i = 0; i < xFrames; i++) {
     const z =
       boomZ0 + 1.5 + i * ((boomLength - 3) / Math.max(xFrames - 1, 1));
     frameZs.push(z);
 
-    // Cross X in the bay plane (perpendicular to boom)
     strut(
       `BoomXBraceA_${i}`,
       -boomHalf,
@@ -384,8 +543,6 @@ export function createPlaceholderCrane(
       mats.steel,
       Boom
     );
-
-    // Vertical + horizontal posts at frame
     strut(
       `BoomFrameV_L_${i}`,
       -boomHalf,
@@ -436,10 +593,9 @@ export function createPlaceholderCrane(
     );
   }
 
-  // Side diagonals between consecutive frames (±X faces)
   for (let i = 0; i < frameZs.length - 1; i++) {
-    const zA = frameZs[i];
-    const zB = frameZs[i + 1];
+    const zA = frameZs[i]!;
+    const zB = frameZs[i + 1]!;
     for (const sx of [-boomHalf, boomHalf] as const) {
       const side = sx > 0 ? "R" : "L";
       strut(
@@ -467,7 +623,6 @@ export function createPlaceholderCrane(
         Boom
       );
     }
-    // Top/bottom longitudinal diagonals lightly
     strut(
       `BoomTopDiag_${i}`,
       -boomHalf,
@@ -482,11 +637,11 @@ export function createPlaceholderCrane(
     );
   }
 
-  // JibTip — open 0.9 end frame (not solid cube)
+  // JibTip — open end frame + tip sheave
   const JibTip = group("JibTip", BoomRoot);
   JibTip.position.set(0, 0, boomLength + 1.5);
   const tipHalf = 0.45;
-  const tipT = 0.1;
+  const tipT = 0.07;
   const tipEdges: [number, number, number, number, number, number, string][] = [
     [-tipHalf, -tipHalf, 0, tipHalf, -tipHalf, 0, "B"],
     [-tipHalf, tipHalf, 0, tipHalf, tipHalf, 0, "T"],
@@ -496,7 +651,6 @@ export function createPlaceholderCrane(
   for (const [ax, ay, az, bx, by, bz, lab] of tipEdges) {
     strut(`JibTip_${lab}`, ax, ay, az, bx, by, bz, tipT, mats.steel, JibTip);
   }
-  // Depth ring (open frame depth ~0.35)
   const tipDepth = 0.35;
   for (const [cx, cy] of boomCorners) {
     strut(
@@ -527,6 +681,17 @@ export function createPlaceholderCrane(
     );
   }
 
+  // Tip sheave / pulley (visible from high cam)
+  const tipSheave = cyl("JibTipSheave", 0.28, 0.28, 0.14, mats.steelDark, JibTip, 16);
+  tipSheave.rotation.z = Math.PI / 2;
+  tipSheave.position.set(0, -0.55, 0.05);
+  const tipSheaveRim = cyl("JibTipSheaveRim", 0.32, 0.32, 0.04, mats.steel, JibTip, 16);
+  tipSheaveRim.rotation.z = Math.PI / 2;
+  tipSheaveRim.position.set(0, -0.55, 0.05);
+  const tipSheaveAxle = cyl("JibTipSheaveAxle", 0.05, 0.05, 0.4, mats.steel, JibTip, 8);
+  tipSheaveAxle.rotation.z = Math.PI / 2;
+  tipSheaveAxle.position.set(0, -0.55, 0.05);
+
   const initialTrolleyZ = 22;
   const initialCableLength = 18;
   const boomWorldY = mastTopY + 1.2 + 2.4;
@@ -534,46 +699,69 @@ export function createPlaceholderCrane(
   const trolley = group("Trolley", BoomRoot);
   trolley.position.set(0, 0, initialTrolleyZ);
 
-  const trolleyBody = box("TrolleyBody", 1.05, 0.4, 1.05, mats.steel, trolley);
+  const trolleyBody = box("TrolleyBody", 1.05, 0.35, 1.05, mats.steelDark, trolley);
   trolleyBody.position.set(0, -0.55, 0);
 
-  const trolleyWheels = box("TrolleyWheels", 1.2, 0.18, 0.35, mats.craneYellow, trolley);
-  trolleyWheels.position.set(0, -0.28, 0);
+  // Trolley wheels (ride on boom chords)
+  for (const [wx, wz, n] of [
+    [-0.42, 0.38, "FL"],
+    [0.42, 0.38, "FR"],
+    [-0.42, -0.38, "RL"],
+    [0.42, -0.38, "RR"],
+  ] as const) {
+    const wh = cyl(`TrolleyWheel_${n}`, 0.12, 0.12, 0.1, mats.steel, trolley, 10);
+    wh.rotation.z = Math.PI / 2;
+    wh.position.set(wx, -0.22, wz);
+  }
 
-  const Cable = cyl("Cable", 0.07, 0.07, 1, mats.steel, trolley, 10);
+  // Trolley sheave / pulley block
+  const trolSheave = cyl("TrolleySheave", 0.22, 0.22, 0.16, mats.steelDark, trolley, 14);
+  trolSheave.rotation.z = Math.PI / 2;
+  trolSheave.position.set(0, -0.85, 0);
+  const trolSheave2 = cyl("TrolleySheave2", 0.18, 0.18, 0.12, mats.steel, trolley, 12);
+  trolSheave2.rotation.z = Math.PI / 2;
+  trolSheave2.position.set(0.14, -0.85, 0);
 
-  for (const ox of [-0.07, 0.07] as const) {
+  // Multi-part hoist cable (main + falls); placeHoist scales all Cable* under trolley
+  const Cable = cyl("Cable", 0.055, 0.055, 1, mats.steel, trolley, 10);
+
+  const fall2 = cyl("CableFall2", 0.045, 0.045, 1, mats.steelDark, trolley, 8);
+  fall2.position.set(0.11, 0, 0);
+  const fall3 = cyl("CableFall3", 0.04, 0.04, 1, mats.steel, trolley, 8);
+  fall3.position.set(-0.1, 0, 0.02);
+
+  for (const ox of [-0.05, 0.05] as const) {
     const strand = cyl(
       `CableStrand_${ox > 0 ? "R" : "L"}`,
-      0.035,
-      0.035,
+      0.028,
+      0.028,
       1,
-      mats.steel,
+      mats.steelDark,
       Cable,
       8
     );
     strand.position.set(ox, 0, 0);
   }
 
-  const Hook = box("Hook", 0.55, 0.95, 0.45, mats.craneYellow, trolley);
+  const Hook = box("Hook", 0.5, 0.9, 0.4, mats.craneYellow, trolley);
 
   for (const sx of [-1, 1] as const) {
     const cheek = box(
       `HookCheek_${sx > 0 ? "R" : "L"}`,
-      0.12,
-      1.05,
-      0.55,
-      mats.steel,
+      0.1,
+      0.95,
+      0.48,
+      mats.steelDark,
       Hook
     );
-    cheek.position.set(sx * 0.34, 0, 0);
+    cheek.position.set(sx * 0.3, 0, 0);
   }
 
-  const hookSheave = cyl("HookSheave", 0.21, 0.21, 0.2, mats.steel, Hook, 14);
+  const hookSheave = cyl("HookSheave", 0.2, 0.2, 0.18, mats.steel, Hook, 14);
   hookSheave.rotation.z = Math.PI / 2;
-  hookSheave.position.set(0, 0.35, 0);
+  hookSheave.position.set(0, 0.32, 0);
 
-  const hookRing = torus("HookRing", 0.275, 0.06, mats.steel, trolley, 16);
+  const hookRing = torus("HookRing", 0.275, 0.055, mats.steel, trolley, 16);
 
   placeHoist(Cable, Hook, hookRing, initialCableLength);
 
@@ -605,8 +793,23 @@ export function placeHoist(
   hookRing: Mesh,
   cableLength: number
 ): void {
-  cable.scale.set(1, Math.max(cableLength, 0.05), 1);
-  cable.position.set(0, -cableLength / 2, 0);
-  hook.position.set(0, -cableLength - 0.45, 0);
-  hookRing.position.set(0, -cableLength - 1.0, 0);
+  const L = Math.max(cableLength, 0.05);
+  cable.scale.set(1, L, 1);
+  cable.position.set(0, -L / 2, 0);
+
+  // Sibling multi-fall cables under same trolley parent
+  const parent = cable.parent;
+  if (parent) {
+    for (const name of ["CableFall2", "CableFall3"] as const) {
+      const fall = parent.getObjectByName(name) as Mesh | undefined;
+      if (!fall) continue;
+      fall.scale.set(1, L, 1);
+      const ox = name === "CableFall2" ? 0.11 : -0.1;
+      const oz = name === "CableFall3" ? 0.02 : 0;
+      fall.position.set(ox, -L / 2, oz);
+    }
+  }
+
+  hook.position.set(0, -L - 0.45, 0);
+  hookRing.position.set(0, -L - 1.0, 0);
 }

@@ -143,8 +143,9 @@ function boot(): void {
     setLoadMeter(kg, swingHigh);
 
     blobShadows.update(crane.parts, loads);
-    ambientTraffic.update(dt);
+    // Gates first (from current poses), then trucks honor open amounts / wait
     yardGates.update(ambientTraffic.getTruckPoses(), dt);
+    ambientTraffic.update(dt, yardGates.getOpenAmounts());
     yardDressing.update(dt);
     dustPuffs.update(dt);
     cabCam.update();

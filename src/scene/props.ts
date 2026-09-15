@@ -37,6 +37,12 @@ function createConcretePad(
     lip.position.set(x + ox, lipY, z + oz);
   }
 
+  // Light joint cross on pad surface
+  const j = box(`${name}_JointX`, size * 0.92, 0.03, 0.08, mats.oilStain, parent);
+  j.position.set(x, 0.16, z);
+  const jz = box(`${name}_JointZ`, 0.08, 0.03, size * 0.92, mats.oilStain, parent);
+  jz.position.set(x, 0.16, z);
+
   return {
     id: name,
     label: name,
@@ -58,11 +64,32 @@ function createShed(
   const wall = box("ShedBody", 6, 3.2, 4.5, mats.shedWall, shed);
   wall.position.y = 1.6;
 
+  // Corner trim bevels
+  for (const [cx, cz] of [
+    [-3.05, 2.25],
+    [3.05, 2.25],
+    [-3.05, -2.25],
+    [3.05, -2.25],
+  ] as const) {
+    const trim = box(
+      `ShedCorner_${cx}_${cz}`,
+      0.12,
+      3.2,
+      0.12,
+      mats.shedRoof,
+      shed
+    );
+    trim.position.set(cx, 1.6, cz);
+  }
+
   const doorRecess = box("ShedDoorRecess", 1.5, 2.2, 0.25, mats.shedDoor, shed);
   doorRecess.position.set(0, 1.1, 2.2);
 
   const doorPanel = box("ShedDoorPanel", 1.25, 2.0, 0.08, mats.shedDoor, shed);
   doorPanel.position.set(0, 1.05, 2.28);
+
+  const doorHandle = box("ShedDoorHandle", 0.08, 0.08, 0.2, mats.steel, shed);
+  doorHandle.position.set(0.45, 1.05, 2.36);
 
   for (const [wx, wz] of [
     [-3.05, 0.4],
@@ -105,11 +132,15 @@ function createShed(
   const porch = box("ShedPorch", 3.2, 0.18, 1.6, mats.concrete, shed);
   porch.position.set(0, 0.09, 3.15);
 
-  const hvac = box("ShedHVAC", 1.4, 0.7, 1.1, mats.steel, shed);
+  const hvac = box("ShedHVAC", 1.4, 0.7, 1.1, mats.steelDark, shed);
   hvac.position.set(-1.6, 4.15, -0.3);
 
   const hvacFan = cyl("ShedHVACFan", 0.275, 0.275, 0.12, mats.steel, shed, 12);
   hvacFan.position.set(-1.6, 4.55, -0.3);
+
+  // Foundation skirt
+  const skirt = box("ShedSkirt", 6.2, 0.2, 4.7, mats.concrete, shed);
+  skirt.position.y = 0.1;
 }
 
 function createYardFence(mats: SharedMaterials, parent: Object3D): void {
@@ -147,7 +178,7 @@ function createYardFence(mats: SharedMaterials, parent: Object3D): void {
 
     for (const t of posts) {
       const post = box(
-        `FencePost_${postIdx++}`,
+        `FencePost_${postIdx}`,
         postW,
         postH,
         postW,
@@ -156,6 +187,19 @@ function createYardFence(mats: SharedMaterials, parent: Object3D): void {
       );
       if (side.axis === "x") post.position.set(side.fixed, postH / 2, t);
       else post.position.set(t, postH / 2, side.fixed);
+
+      // Cap
+      const cap = box(
+        `FenceCap_${postIdx}`,
+        postW * 1.3,
+        0.1,
+        postW * 1.3,
+        mats.steelDark,
+        fenceRoot
+      );
+      if (side.axis === "x") cap.position.set(side.fixed, postH + 0.05, t);
+      else cap.position.set(t, postH + 0.05, side.fixed);
+      postIdx++;
     }
 
     for (let i = 0; i < posts.length - 1; i++) {
@@ -188,14 +232,28 @@ function createCrate(
   const w = 1.2 * scale;
   const h = 1.0 * scale;
   const d = 1.2 * scale;
-  const crate = box(name, w, h, d, mats.crate, parent);
-  crate.position.set(pos.x, pos.y + h / 2, pos.z);
-  crate.rotation.y = Math.random() * 0.4 - 0.2;
+  const body = box(name, w, h, d, mats.crate, parent);
+  body.position.set(pos.x, pos.y + h / 2, pos.z);
+  body.rotation.y = Math.random() * 0.4 - 0.2;
+
+  const rimT = 0.06 * scale;
+  const rim = box(`${name}_TopRim`, w + 0.04, rimT, d + 0.04, mats.steelDark, body);
+  rim.position.set(0, h / 2 - rimT * 0.5, 0);
+
+  const lab = box(
+    `${name}_Label`,
+    w * 0.45,
+    h * 0.28,
+    0.04,
+    mats.crateLabel,
+    body
+  );
+  lab.position.set(0, 0.05, d / 2 + 0.02);
 
   return {
     id: name,
     kind: "crate",
-    mesh: crate,
+    mesh: body,
     halfHeight: h / 2,
     radius: Math.max(w, d) / 2,
     massKg: CRATE_MASS_KG * scale,
@@ -215,6 +273,36 @@ function createBarrel(
   const diameter = 0.7;
   const barrel = cyl(name, diameter / 2, diameter / 2, height, mats.barrel, parent, 16);
   barrel.position.set(pos.x, pos.y + height / 2, pos.z);
+
+  // Lid
+  const lid = cyl(
+    `${name}_Lid`,
+    diameter / 2 + 0.02,
+    diameter / 2 + 0.02,
+    0.06,
+    mats.barrelLid,
+    barrel,
+    16
+  );
+  lid.position.y = height / 2 - 0.02;
+
+  // Hoop bands
+  for (const hy of [-0.28, 0.05, 0.32] as const) {
+    const hoop = cyl(
+      `${name}_Hoop_${hy}`,
+      diameter / 2 + 0.015,
+      diameter / 2 + 0.015,
+      0.05,
+      mats.steelDark,
+      barrel,
+      14
+    );
+    hoop.position.y = hy;
+  }
+
+  // Label block
+  const label = box(`${name}_Label`, 0.04, 0.28, 0.35, mats.crateLabel, barrel);
+  label.position.set(diameter / 2 + 0.01, 0.05, 0);
 
   if (!pickable) return null;
 
@@ -239,6 +327,14 @@ function createCone(
 ): void {
   const cone = cyl(name, 0.025, 0.175, 0.7, mats.cones, parent, 12);
   cone.position.set(x, 0.35, z);
+
+  // White stripe ring
+  const stripe = cyl(`${name}_Stripe`, 0.09, 0.12, 0.08, mats.coneStripe, cone, 12);
+  stripe.position.y = 0.05;
+
+  // Base disc
+  const base = cyl(`${name}_Base`, 0.2, 0.2, 0.05, mats.steelDark, cone, 12);
+  base.position.y = -0.34;
 }
 
 function createPadMarker(
@@ -276,6 +372,61 @@ function createPadMarker(
     const cross = box("MarkerGlyphA_cross", 0.9, 0.12, 0.15, mats.glyph, node);
     cross.position.y = 0.16;
   }
+}
+
+function createPipeStack(
+  name: string,
+  mats: SharedMaterials,
+  parent: Object3D,
+  x: number,
+  z: number
+): void {
+  const root = group(name, parent);
+  root.position.set(x, 0, z);
+  root.rotation.y = 0.35;
+
+  let idx = 0;
+  for (let row = 0; row < 3; row++) {
+    const count = 3 - row;
+    for (let i = 0; i < count; i++) {
+      const pipe = cyl(
+        `${name}_Pipe_${idx++}`,
+        0.12,
+        0.12,
+        3.2,
+        mats.steel,
+        root,
+        10
+      );
+      pipe.rotation.z = Math.PI / 2;
+      const xOff = (i - (count - 1) / 2) * 0.28;
+      pipe.position.set(xOff, 0.12 + row * 0.24, 0);
+    }
+  }
+}
+
+function createPallet(
+  name: string,
+  mats: SharedMaterials,
+  parent: Object3D,
+  x: number,
+  z: number
+): void {
+  const root = group(name, parent);
+  root.position.set(x, 0, z);
+
+  const deck = box(`${name}_Deck`, 1.6, 0.08, 1.2, mats.crate, root);
+  deck.position.y = 0.14;
+
+  for (const ox of [-0.65, 0, 0.65] as const) {
+    const runner = box(`${name}_Runner_${ox}`, 0.12, 0.12, 1.15, mats.crate, root);
+    runner.position.set(ox, 0.06, 0);
+  }
+  // Small crate on pallet (dressing only)
+  const top = box(`${name}_Box`, 0.9, 0.55, 0.7, mats.truckBox, root);
+  top.position.y = 0.45;
+  const lab = box(`${name}_Label`, 0.35, 0.2, 0.04, mats.crateLabel, root);
+  lab.position.set(0, 0.5, 0.38);
 }
 
 export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
@@ -327,6 +478,12 @@ export function createProps(scene: Scene, mats: SharedMaterials): PropsResult {
 
   createPadMarker("A", mats, root, -18, 12);
   createPadMarker("B", mats, root, 22, -8);
+
+  // Pipe stacks + pallet (away from roads/pads)
+  createPipeStack("PipeStack1", mats, root, 30, 18);
+  createPipeStack("PipeStack2", mats, root, 32, 16);
+  createPallet("Pallet1", mats, root, -22, -14);
+  createPallet("Pallet2", mats, root, 18, 20);
 
   return { root, loads, pads };
 }

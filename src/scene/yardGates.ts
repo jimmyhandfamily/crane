@@ -6,6 +6,7 @@ import { Object3D, Scene } from "three";
 import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
 import { box, group } from "./meshHelpers";
+import type { GateOpenAmounts } from "./ambientTraffic";
 
 export interface TruckXZ {
   x: number;
@@ -16,6 +17,7 @@ export interface TruckXZ {
 export interface YardGates {
   root: Object3D;
   update(trucks: TruckXZ[], dt: number): void;
+  getOpenAmounts(): GateOpenAmounts;
 }
 
 const OPEN_NEAR = 14;
@@ -43,6 +45,10 @@ function createGateLeaf(
 
   const post = box(`${name}_Post`, postW, postH, postW, mats.fence, hinge);
   post.position.set(0, postH / 2, 0);
+
+  // Fence cap
+  const cap = box(`${name}_Cap`, postW * 1.25, 0.1, postW * 1.25, mats.steelDark, hinge);
+  cap.position.set(0, postH + 0.05, 0);
 
   const panel = box(
     `${name}_Panel`,
@@ -164,5 +170,10 @@ export function createYardGates(scene: Scene, mats: SharedMaterials): YardGates 
   applyLeaves(westLeaves, 0);
   applyLeaves(northLeaves, 0);
 
-  return { root, update };
+  const getOpenAmounts = (): GateOpenAmounts => ({
+    west: westOpen,
+    north: northOpen,
+  });
+
+  return { root, update, getOpenAmounts };
 }
