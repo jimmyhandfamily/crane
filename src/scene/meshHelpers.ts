@@ -22,6 +22,8 @@ export function box(
 ): Mesh {
   const m = new Mesh(new BoxGeometry(w, h, d), mat);
   m.name = name;
+  m.castShadow = true;
+  m.receiveShadow = true;
   if (parent) parent.add(m);
   return m;
 }
@@ -40,6 +42,8 @@ export function cyl(
     mat
   );
   m.name = name;
+  m.castShadow = true;
+  m.receiveShadow = true;
   if (parent) parent.add(m);
   return m;
 }

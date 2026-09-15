@@ -3,3 +3,4 @@ export { createAmbientTraffic, type AmbientTraffic, type GateOpenAmounts } from 
 export { createYardDressing, type YardDressing } from "./yardDressing";
 export { createYardGates, type YardGates } from "./yardGates";
 export { createDustPuffs, type DustPuffs } from "./dustPuffs";
+export { createPerimeterTrees } from "./trees";

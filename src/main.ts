@@ -1,4 +1,4 @@
-import { WebGLRenderer, Clock, SRGBColorSpace, Vector3 } from "three";
+import { WebGLRenderer, Clock, SRGBColorSpace, Vector3, PCFSoftShadowMap } from "three";
 import { createCraneScene } from "./scene/createScene";
 import { initHud, setLoadMeter, setPayTease, setRole, setTitle } from "./ui/hud";
 import { getCareerState } from "./career/careerStub";
@@ -88,6 +88,8 @@ function boot(): void {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFSoftShadowMap;
 
   const {
     scene,

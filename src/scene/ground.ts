@@ -1,49 +1,101 @@
-import { type Object3D, Scene } from "three";
+import {
+  BufferAttribute,
+  Mesh,
+  PlaneGeometry,
+  type Object3D,
+  Scene,
+} from "three";
 import { YARD_SIZE } from "../config/units";
 import type { SharedMaterials } from "./materials";
 import { box, groundPlane, group } from "./meshHelpers";
+
+/** Flat zones: crane pad, gravel roads/aprons — height stays ~0. */
+function isFlatZone(x: number, z: number): boolean {
+  // Crane work pad ±14
+  if (Math.abs(x) < 15 && Math.abs(z) < 15) return true;
+  // West lane corridor x≈-42, z 0..42
+  if (Math.abs(x + 42) < 6 && z > -4 && z < 46) return true;
+  // North connector z≈42, x -42..6
+  if (Math.abs(z - 42) < 6 && x > -48 && x < 8) return true;
+  // West / north gate aprons
+  if (x < -YARD_SIZE / 2 + 8 && Math.abs(z) < 6) return true;
+  if (z > YARD_SIZE / 2 - 8 && Math.abs(x) < 6) return true;
+  // Shed spur
+  if (Math.abs(z - 28) < 4 && x > -44 && x < -28) return true;
+  // Load pads area (props pads roughly ±20–35)
+  if (x > 16 && x < 36 && z > 8 && z < 28) return true;
+  if (x > -36 && x < -16 && z > -28 && z < -8) return true;
+  return false;
+}
+
+function terrainHeight(x: number, z: number): number {
+  if (isFlatZone(x, z)) return 0;
+  // Smooth rolling hills outside work areas
+  const n =
+    Math.sin(x * 0.045) * Math.cos(z * 0.038) * 1.35 +
+    Math.sin(x * 0.09 + 1.7) * Math.cos(z * 0.07) * 0.55 +
+    Math.sin((x + z) * 0.03) * 0.4;
+  // Soft edge falloff near yard boundary (higher berms)
+  const half = YARD_SIZE / 2;
+  const edge = Math.max(
+    0,
+    Math.max(Math.abs(x) - (half - 14), Math.abs(z) - (half - 14)) / 14
+  );
+  const h = n * (0.35 + edge * 1.8) + edge * 0.85;
+  return Math.max(-0.15, Math.min(3.2, h));
+}
+
+function createHeightfield(
+  name: string,
+  size: number,
+  segs: number,
+  mat: SharedMaterials["dirt"],
+  parent: Object3D
+): Mesh {
+  const geo = new PlaneGeometry(size, size, segs, segs);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position as BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    pos.setY(i, terrainHeight(x, z));
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  const mesh = new Mesh(geo, mat);
+  mesh.name = name;
+  mesh.receiveShadow = true;
+  mesh.castShadow = false;
+  parent.add(mesh);
+  return mesh;
+}
 
 export function createGround(scene: Scene, mats: SharedMaterials): Object3D {
   const root = group("YardRoot");
   scene.add(root);
 
-  groundPlane("GroundDirt", YARD_SIZE, YARD_SIZE, mats.dirt, root);
+  // Rolling dirt heightfield (replaces flat infinite plate feel)
+  createHeightfield("GroundDirtHF", YARD_SIZE + 40, 96, mats.dirt, root);
 
-  // Crane work pad — mostly flat packed earth
+  // Crane work pad — flat packed earth (slightly raised for z-fight)
   const packed = groundPlane("GroundPacked", 28, 28, mats.packed, root);
-  packed.position.set(0, 0.02, 0);
+  packed.position.set(0, 0.04, 0);
 
   // Pad joints (grid lines)
   const jointT = 0.18;
   const jointH = 0.04;
   for (let i = -1; i <= 1; i++) {
     if (i === 0) continue;
-    const jx = box(
-      `PadJointX_${i}`,
-      28,
-      jointH,
-      jointT,
-      mats.oilStain,
-      root
-    );
-    jx.position.set(0, 0.04, i * 7);
-    const jz = box(
-      `PadJointZ_${i}`,
-      jointT,
-      jointH,
-      28,
-      mats.oilStain,
-      root
-    );
-    jz.position.set(i * 7, 0.04, 0);
+    const jx = box(`PadJointX_${i}`, 28, jointH, jointT, mats.oilStain, root);
+    jx.position.set(0, 0.055, i * 7);
+    const jz = box(`PadJointZ_${i}`, jointT, jointH, 28, mats.oilStain, root);
+    jz.position.set(i * 7, 0.055, 0);
   }
-  // Cross center joints
   const jx0 = box("PadJointX_0", 28, jointH, jointT * 0.7, mats.oilStain, root);
-  jx0.position.set(0, 0.038, 0);
+  jx0.position.set(0, 0.052, 0);
   const jz0 = box("PadJointZ_0", jointT * 0.7, jointH, 28, mats.oilStain, root);
-  jz0.position.set(0, 0.038, 0);
+  jz0.position.set(0, 0.052, 0);
 
-  // Oil stains near crane base
   const stains: [string, number, number, number, number][] = [
     ["OilStain1", 3.2, 2.4, 2.5, 3.0],
     ["OilStain2", 2.0, 1.6, -3.5, -2.0],
@@ -51,7 +103,7 @@ export function createGround(scene: Scene, mats: SharedMaterials): Object3D {
   ];
   for (const [name, w, d, x, z] of stains) {
     const s = groundPlane(name, w, d, mats.oilStain, root);
-    s.position.set(x, 0.032, z);
+    s.position.set(x, 0.048, z);
   }
 
   const lipT = 0.35;
@@ -64,61 +116,52 @@ export function createGround(scene: Scene, mats: SharedMaterials): Object3D {
     ["CranePadLipW", lipT, 28, -(padHalf + lipT / 2), 0],
   ] as const) {
     const lip = box(name, w, lipH, d, mats.packed, root);
-    lip.position.set(x, lipH / 2, z);
+    lip.position.set(x, lipH / 2 + 0.02, z);
   }
 
-  // Grass strips — leave corridors clear for west lane (x≈-42) and north conn (z≈42)
+  // Grass on rolling ground — follow approximate height at center
+  const placeGrass = (
+    name: string,
+    w: number,
+    d: number,
+    x: number,
+    z: number,
+    mat: SharedMaterials["grass"]
+  ): void => {
+    const g = groundPlane(name, w, d, mat, root);
+    const y = Math.max(0.02, terrainHeight(x, z) + 0.03);
+    g.position.set(x, y, z);
+  };
+
   const stripW = YARD_SIZE;
   const stripD = 10;
-  // South grass (full)
-  const grassS = groundPlane("GrassStrip_S", stripW - 4, stripD, mats.grass, root);
-  grassS.position.set(0, 0.015, -(YARD_SIZE / 2 - stripD / 2 - 1));
-  // North grass — split around north road corridor (x -6..6 kept dirt/gravel)
-  const grassN_L = groundPlane("GrassStrip_NL", 38, stripD, mats.grass, root);
-  grassN_L.position.set(-28, 0.015, YARD_SIZE / 2 - stripD / 2 - 1);
-  const grassN_R = groundPlane("GrassStrip_NR", 38, stripD, mats.grass, root);
-  grassN_R.position.set(28, 0.015, YARD_SIZE / 2 - stripD / 2 - 1);
+  placeGrass("GrassStrip_S", stripW - 4, stripD, 0, -(YARD_SIZE / 2 - stripD / 2 - 1), mats.grass);
+  placeGrass("GrassStrip_NL", 38, stripD, -28, YARD_SIZE / 2 - stripD / 2 - 1, mats.grass);
+  placeGrass("GrassStrip_NR", 38, stripD, 28, YARD_SIZE / 2 - stripD / 2 - 1, mats.grass);
 
   const fenceGrassD = 4;
   const half = YARD_SIZE / 2;
-  // Fence grass — west side leaves gap for west lane/apron (z -8..40 dirt)
   for (const [name, w, d, x, z] of [
     ["GrassFenceN", YARD_SIZE - 16, fenceGrassD, 18, half - fenceGrassD / 2 - 0.5],
-    [
-      "GrassFenceS",
-      YARD_SIZE - 2,
-      fenceGrassD,
-      0,
-      -(half - fenceGrassD / 2 - 0.5),
-    ],
-    [
-      "GrassFenceE",
-      fenceGrassD,
-      YARD_SIZE - 10,
-      half - fenceGrassD / 2 - 0.5,
-      0,
-    ],
-    // West fence grass split N/S of gate, skip road corridor
-    [
-      "GrassFenceW_S",
-      fenceGrassD,
-      36,
-      -(half - fenceGrassD / 2 - 0.5),
-      -28,
-    ],
-    [
-      "GrassFenceW_N",
-      fenceGrassD,
-      8,
-      -(half - fenceGrassD / 2 - 0.5),
-      44,
-    ],
+    ["GrassFenceS", YARD_SIZE - 2, fenceGrassD, 0, -(half - fenceGrassD / 2 - 0.5)],
+    ["GrassFenceE", fenceGrassD, YARD_SIZE - 10, half - fenceGrassD / 2 - 0.5, 0],
+    ["GrassFenceW_S", fenceGrassD, 36, -(half - fenceGrassD / 2 - 0.5), -28],
+    ["GrassFenceW_N", fenceGrassD, 8, -(half - fenceGrassD / 2 - 0.5), 44],
   ] as const) {
-    const g = groundPlane(name, w, d, mats.grassDark, root);
-    g.position.set(x, 0.018, z);
+    placeGrass(name, w, d, x, z, mats.grassDark);
   }
 
-  // Dirt mottles — avoid road corridors
+  // Extra rolling grass patches outside pads
+  const grassPatches: [string, number, number, number, number][] = [
+    ["GrassHill_SE", 22, 18, 38, -38],
+    ["GrassHill_SW", 20, 16, -36, -40],
+    ["GrassHill_NE", 18, 14, 40, 28],
+    ["GrassHill_E", 14, 22, 46, 0],
+  ];
+  for (const [name, w, d, x, z] of grassPatches) {
+    placeGrass(name, w, d, x, z, mats.grass);
+  }
+
   const mottles: {
     name: string;
     w: number;
@@ -140,8 +183,11 @@ export function createGround(scene: Scene, mats: SharedMaterials): Object3D {
   ];
   for (const m of mottles) {
     const q = groundPlane(m.name, m.w, m.d, mats[m.mat], root);
-    q.position.set(m.x, 0.012, m.z);
+    q.position.set(m.x, Math.max(0.02, terrainHeight(m.x, m.z) + 0.025), m.z);
   }
 
   return root;
 }
+
+/** Exported for trees / props that need ground height. */
+export { terrainHeight, isFlatZone };

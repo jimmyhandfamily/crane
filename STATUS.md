@@ -13,48 +13,28 @@
 
 Packages: `three@^0.186`, `@types/three`, `vite@^6.3.5`, `typescript@~5.8.3`
 
-## FINAL realism pass (tonight)
+## Art pivot → realistic outdoor jobsite (CRITICAL PASS)
 
-### Crane (less toy-like from high cam)
-- Kept open lattice mast / ladder / hollow boom; thinner braces (0.08 / 0.07)
-- **Sheaves:** jib-tip pulley + dual trolley sheaves + hook sheave
-- **Multi-part cable:** `Cable` + `CableFall2`/`CableFall3` (scaled together in `placeHoist`)
-- **Trolley wheels** on boom chords
-- **Cab:** window frames, door+handle, roof AC, seat/console interior, rails
-- **Lattice counter-jib** + stacked counterweight plates/straps/label
-- **Mast→collar tie-ins** (yellow stubs + dark gussets)
-- Hex lock: `#E5B03A` / `#525C66` / `#4A7A8E` / `#3A424A` (`steelDark`)
-- Required node names + controls/physics unchanged
+Pivot away from flat plate / blocky toy look. **CC0 only** this pass — Poly Haven tree GLBs too heavy (~100MB tex); Kenney zips unavailable. High-detail procedural + canvas PBR used instead.
 
-### Roads (FIRST PRIORITY — coherent site loop)
-- Continuous gravel: **W gate apron (10×8) → west lane (x=-42) → NW corner → N connector (z=42) → N gate apron (8×10)**
-- **Shed spur** (~5.5 m) off west lane at z=28; parked van on spur only
-- Movers follow **loop path only** (no spur, no pad cut-through)
-- Lane ~6.5 m, center strip, shoulders, tire tracks, slight raise
-- No orphan strips; grass corridors cleared off road path
-- Berm strips along west/north outer shoulders
+### A. Cable ghost FIXED
+- Root cause: `CableFall2` / `CableFall3` were **siblings** of `Cable`; `applyVisuals` swayed only main Cable → vertical ghost falls on swing.
+- Fix: falls + strands are **children of `Cable`** so scale/quaternion inherit each frame; `placeHoist` no longer repositions sibling falls.
 
-### Trucks (logic + speed)
-- Max speeds **4.5–7 m/s** (site pace); shed zone ~45% of max
-- Accel ~2.2 / decel ~3.6 m/s²; yaw lerp toward path
-- **Pause at west/north gates until open ≥0.72** (`yardGates.getOpenAmounts()`)
-- Shed pause ~2–4 s; staggered start waits (1.5 / 18 / 36 / 55 s)
-- Optional **brake lights** (per-truck cloned mats, light on decel/stop)
-- Main loop: gates update from poses → traffic honors open amounts
+### B. Realism
+1. **Terrain:** Rolling heightfield (`GroundDirtHF`, 96×96 segs) with flat zones for crane pad, gravel roads, aprons, pads.
+2. **Trees:** Perimeter clusters (`PerimeterTrees`) — tapered trunks + layered cone foliage; kill empty void.
+3. **Crane:** Slightly thicker lattice chords/braces, denser boom frames (10); steel/yellow **higher metalness** PBR.
+4. **Vehicles:** Rounded cabs (roof/nose/hood), wheel hubs + fenders, tapered mixer drum + fins; site speeds unchanged.
+5. **Ground mats:** Procedural canvas albedo + roughness maps on dirt/grass/gravel/packed (`MeshStandardMaterial`).
+6. **Lighting:** Hemisphere + directional; **PCF soft shadow maps** (2048) on key meshes.
+7. **Sky:** Deeper zenith→haze gradient + extra cloud plane.
 
-### Ground / props
-- Crane pad **joints + oil stains**; extra dirt mottles (road-clear)
-- Shed: corner trim, door handle, foundation skirt
-- Crates: top rim + label block; barrels: lid + hoops + label; cones: stripe + base
-- Fence **caps**; pipe stacks + pallets; pad surface joints
-- Workers: feet on ground (`baseHipY` 0.98, milder bob); paths off N road
-
-### HUD
-- Kept slim (no center blocking card)
+Gameplay unchanged: controls, physics, loads, road loop, HUD slim.
 
 ## Prior session notes
 
-Cab cam (C), gate opens, idle excavator, dust puffs, Junior rank, career persist, Lesson 2, swing warn, soft magnet, sky, mild sway physics — unchanged.
+Cab cam (C), gate opens, idle excavator, dust puffs, Junior rank, career persist, Lesson 2, swing warn, soft magnet, mild sway physics — unchanged.
 
 ## Verify
 

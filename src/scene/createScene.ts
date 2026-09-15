@@ -22,6 +22,7 @@ import { createProps } from "./props";
 import { createYardDressing, type YardDressing } from "./yardDressing";
 import { createYardGates, type YardGates } from "./yardGates";
 import { createSky } from "./sky";
+import { createPerimeterTrees } from "./trees";
 
 export interface CraneScene {
   scene: Scene;
@@ -44,7 +45,7 @@ export function createCraneScene(
   canvas: HTMLCanvasElement
 ): CraneScene {
   const scene = new Scene();
-  scene.fog = new FogExp2(0xe8f4f8, 0.004);
+  scene.fog = new FogExp2(0xd8e6ec, 0.0032);
   createSky(scene);
 
   createLights(scene);
@@ -52,6 +53,7 @@ export function createCraneScene(
 
   const mats = createSharedMaterials();
   createGround(scene, mats);
+  createPerimeterTrees(scene, mats);
   const parts = createPlaceholderCrane(scene, mats);
   const crane = createCraneController(parts);
   const { loads: loadItems, pads, root: propsRoot } = createProps(scene, mats);

@@ -1,5 +1,5 @@
 /**
- * Art palette — soft cartoon-real training yard colors (Dredge-warmer / friendly).
+ * Art palette — outdoor jobsite (realistic lean, still readable from high cam).
  * FINAL: crane yellow / steel / glass / dark-steel hexes locked.
  */
 export const Palette = {

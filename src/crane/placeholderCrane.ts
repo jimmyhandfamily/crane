@@ -10,8 +10,8 @@ import { box, cyl, group, strut, torus } from "../scene/meshHelpers";
  * BoomRoot, Boom, JibTip, Cable, Hook,
  * OutriggerN, OutriggerE, OutriggerS, OutriggerW
  *
- * FINAL realism: open lattice mast/boom, sheaves, multi-part cable,
- * richer cab, lattice counter-jib, mast→collar tie-ins.
+ * REALISTIC jobsite: open lattice mast/boom, sheaves, multi-part cable
+ * (falls as Cable children — no sway ghost), richer cab, counter-jib.
  */
 
 export const BOOM_LENGTH = 36;
@@ -126,8 +126,8 @@ export function createPlaceholderCrane(
   const mastHeight = bayCount * bayH;
   const mastTopY = mastBaseY + mastHeight;
   const chordHalf = 1.1;
-  const chordSize = 0.18;
-  const braceSize = 0.08; // less chunky
+  const chordSize = 0.2;
+  const braceSize = 0.09; // readable lattice, not toy blocks
   const corners: [number, number][] = [
     [-chordHalf, -chordHalf],
     [chordHalf, -chordHalf],
@@ -489,8 +489,8 @@ export function createPlaceholderCrane(
   Boom.position.set(0, 0, boomLength / 2 + 1);
 
   const boomHalf = 0.45;
-  const boomChord = 0.11;
-  const boomBrace = 0.07; // less chunky
+  const boomChord = 0.13;
+  const boomBrace = 0.08;
   const boomZ0 = -boomLength / 2;
   const boomCorners: [number, number][] = [
     [-boomHalf, -boomHalf],
@@ -512,7 +512,7 @@ export function createPlaceholderCrane(
     chord.position.set(cx, cy, 0);
   }
 
-  const xFrames = 8;
+  const xFrames = 10;
   const frameZs: number[] = [];
   for (let i = 0; i < xFrames; i++) {
     const z =
@@ -722,12 +722,13 @@ export function createPlaceholderCrane(
   trolSheave2.rotation.z = Math.PI / 2;
   trolSheave2.position.set(0.14, -0.85, 0);
 
-  // Multi-part hoist cable (main + falls); placeHoist scales all Cable* under trolley
+  // Multi-part hoist: Fall2/3 + strands are CHILDREN of Cable so sway/scale inherit
+  // (sibling falls previously stayed vertical → double-cable ghost on sway).
   const Cable = cyl("Cable", 0.055, 0.055, 1, mats.steel, trolley, 10);
 
-  const fall2 = cyl("CableFall2", 0.045, 0.045, 1, mats.steelDark, trolley, 8);
+  const fall2 = cyl("CableFall2", 0.045, 0.045, 1, mats.steelDark, Cable, 8);
   fall2.position.set(0.11, 0, 0);
-  const fall3 = cyl("CableFall3", 0.04, 0.04, 1, mats.steel, trolley, 8);
+  const fall3 = cyl("CableFall3", 0.04, 0.04, 1, mats.steel, Cable, 8);
   fall3.position.set(-0.1, 0, 0.02);
 
   for (const ox of [-0.05, 0.05] as const) {
@@ -794,20 +795,11 @@ export function placeHoist(
   cableLength: number
 ): void {
   const L = Math.max(cableLength, 0.05);
+  // Falls/strands are children — inherit scale; keep identity local scale
   cable.scale.set(1, L, 1);
   cable.position.set(0, -L / 2, 0);
-
-  // Sibling multi-fall cables under same trolley parent
-  const parent = cable.parent;
-  if (parent) {
-    for (const name of ["CableFall2", "CableFall3"] as const) {
-      const fall = parent.getObjectByName(name) as Mesh | undefined;
-      if (!fall) continue;
-      fall.scale.set(1, L, 1);
-      const ox = name === "CableFall2" ? 0.11 : -0.1;
-      const oz = name === "CableFall3" ? 0.02 : 0;
-      fall.position.set(ox, -L / 2, oz);
-    }
+  for (const child of cable.children) {
+    if (child instanceof Mesh) child.scale.set(1, 1, 1);
   }
 
   hook.position.set(0, -L - 0.45, 0);

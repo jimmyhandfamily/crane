@@ -144,11 +144,19 @@ function addWheel(
   mat: MeshStandardMaterial,
   x: number,
   z: number,
-  y = 0.45
+  y = 0.45,
+  wellMat?: MeshStandardMaterial
 ): void {
-  const wheel = cyl(name, 0.45, 0.45, 0.4, mat, parent, 10);
+  const wheel = cyl(name, 0.48, 0.48, 0.38, mat, parent, 12);
   wheel.rotation.z = Math.PI / 2;
   wheel.position.set(x, y, z);
+  const hub = cyl(`${name}_Hub`, 0.16, 0.16, 0.42, mat, parent, 8);
+  hub.rotation.z = Math.PI / 2;
+  hub.position.set(x, y, z);
+  if (wellMat) {
+    const fender = box(`${name}_Fender`, 0.5, 0.32, 0.9, wellMat, parent);
+    fender.position.set(x > 0 ? x - 0.05 : x + 0.05, y + 0.38, z);
+  }
 }
 
 function addBrakeLights(
@@ -190,27 +198,39 @@ function createPickup(
   bodyMat: MeshStandardMaterial
 ): { root: Object3D; brakeL: Mesh; brakeR: Mesh } {
   const root = group(name);
-  const cab = box(`${name}_Cab`, 2.0, 1.5, 2.2, bodyMat, root);
-  cab.position.set(0, 1.15, 1.2);
+  // Rounded cab: main + roof + nose chamfer volumes
+  const cab = box(`${name}_Cab`, 1.95, 1.35, 2.0, bodyMat, root);
+  cab.position.set(0, 1.25, 1.15);
+  const cabRoof = box(`${name}_CabRoof`, 1.85, 0.22, 1.85, bodyMat, root);
+  cabRoof.position.set(0, 2.0, 1.1);
+  const nose = box(`${name}_Nose`, 1.9, 0.55, 0.7, bodyMat, root);
+  nose.position.set(0, 0.85, 2.35);
+  const hoodRound = cyl(`${name}_HoodRound`, 0.95, 0.95, 1.85, bodyMat, root, 12);
+  hoodRound.rotation.z = Math.PI / 2;
+  hoodRound.position.set(0, 0.95, 2.15);
+  hoodRound.scale.set(1, 0.35, 0.55);
 
-  const glass = box(`${name}_Glass`, 1.7, 0.7, 0.12, mats.glassDark, root);
-  glass.position.set(0, 1.45, 2.25);
+  const glass = box(`${name}_Glass`, 1.65, 0.65, 0.1, mats.glassDark, root);
+  glass.position.set(0, 1.55, 2.12);
+  for (const sx of [-1, 1] as const) {
+    const sg = box(`${name}_SideGlass_${sx}`, 0.08, 0.55, 1.1, mats.glassDark, root);
+    sg.position.set(sx * 1.0, 1.5, 1.15);
+  }
 
-  const bed = box(`${name}_Bed`, 1.9, 0.45, 2.8, mats.steel, root);
-  bed.position.set(0, 0.75, -1.2);
-
-  const railL = box(`${name}_RailL`, 0.1, 0.55, 2.7, mats.steel, root);
-  railL.position.set(-0.9, 1.15, -1.2);
-  const railR = box(`${name}_RailR`, 0.1, 0.55, 2.7, mats.steel, root);
-  railR.position.set(0.9, 1.15, -1.2);
+  const bed = box(`${name}_Bed`, 1.9, 0.4, 2.7, mats.steel, root);
+  bed.position.set(0, 0.8, -1.25);
+  const railL = box(`${name}_RailL`, 0.08, 0.5, 2.6, mats.steel, root);
+  railL.position.set(-0.92, 1.15, -1.25);
+  const railR = box(`${name}_RailR`, 0.08, 0.5, 2.6, mats.steel, root);
+  railR.position.set(0.92, 1.15, -1.25);
 
   for (const [wx, wz] of [
-    [-0.85, 1.5],
-    [0.85, 1.5],
-    [-0.85, -1.8],
-    [0.85, -1.8],
+    [-0.88, 1.45],
+    [0.88, 1.45],
+    [-0.88, -1.75],
+    [0.88, -1.75],
   ] as const) {
-    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz);
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.45, bodyMat);
   }
   const brakes = addBrakeLights(name, root, mats, -2.55, 0.9, 0.75);
   return { root, brakeL: brakes.l, brakeR: brakes.r };
@@ -222,14 +242,23 @@ function createFlatbed(
   bodyMat: MeshStandardMaterial
 ): { root: Object3D; brakeL: Mesh; brakeR: Mesh } {
   const root = group(name);
-  const cab = box(`${name}_Cab`, 2.3, 1.7, 2.4, bodyMat, root);
-  cab.position.set(0, 1.35, 2.0);
+  const cab = box(`${name}_Cab`, 2.25, 1.55, 2.2, bodyMat, root);
+  cab.position.set(0, 1.45, 2.0);
+  const cabRoof = box(`${name}_CabRoof`, 2.15, 0.2, 2.05, bodyMat, root);
+  cabRoof.position.set(0, 2.3, 1.95);
+  const bumper = box(`${name}_Bumper`, 2.35, 0.35, 0.35, mats.steelDark, root);
+  bumper.position.set(0, 0.65, 3.2);
 
-  const glass = box(`${name}_Glass`, 1.9, 0.75, 0.12, mats.glassDark, root);
-  glass.position.set(0, 1.65, 3.15);
+  const glass = box(`${name}_Glass`, 1.85, 0.7, 0.1, mats.glassDark, root);
+  glass.position.set(0, 1.75, 3.05);
 
-  const deck = box(`${name}_Deck`, 2.4, 0.35, 4.2, mats.steel, root);
-  deck.position.set(0, 0.85, -1.2);
+  const deck = box(`${name}_Deck`, 2.4, 0.32, 4.2, mats.steel, root);
+  deck.position.set(0, 0.9, -1.2);
+  // Side rails
+  for (const sx of [-1.15, 1.15] as const) {
+    const rail = box(`${name}_DeckRail`, 0.08, 0.4, 4.0, mats.steelDark, root);
+    rail.position.set(sx, 1.2, -1.2);
+  }
 
   for (const [wx, wz] of [
     [-1.05, 2.2],
@@ -239,7 +268,7 @@ function createFlatbed(
     [-1.05, -2.6],
     [1.05, -2.6],
   ] as const) {
-    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5);
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5, bodyMat);
   }
   const brakes = addBrakeLights(name, root, mats, -3.25, 0.95, 0.95);
   return { root, brakeL: brakes.l, brakeR: brakes.r };
@@ -250,14 +279,20 @@ function createBoxTruck(
   mats: SharedMaterials
 ): { root: Object3D; brakeL: Mesh; brakeR: Mesh } {
   const root = group(name);
-  const cab = box(`${name}_Cab`, 2.4, 2.0, 2.2, mats.craneYellow, root);
-  cab.position.set(0, 1.5, 2.6);
+  const cab = box(`${name}_Cab`, 2.35, 1.85, 2.0, mats.craneYellow, root);
+  cab.position.set(0, 1.55, 2.65);
+  const cabRoof = box(`${name}_CabRoof`, 2.25, 0.22, 1.9, mats.craneYellow, root);
+  cabRoof.position.set(0, 2.55, 2.6);
+  const sleeper = box(`${name}_Sleeper`, 2.3, 1.2, 0.9, mats.craneYellow, root);
+  sleeper.position.set(0, 2.1, 1.55);
 
-  const glass = box(`${name}_Glass`, 2.0, 0.9, 0.12, mats.glassDark, root);
-  glass.position.set(0, 1.85, 3.65);
+  const glass = box(`${name}_Glass`, 1.95, 0.85, 0.1, mats.glassDark, root);
+  glass.position.set(0, 1.9, 3.6);
 
-  const boxBody = box(`${name}_Box`, 2.5, 2.8, 5.2, mats.truckBox, root);
-  boxBody.position.set(0, 1.9, -0.8);
+  const boxBody = box(`${name}_Box`, 2.5, 2.7, 5.1, mats.truckBox, root);
+  boxBody.position.set(0, 1.95, -0.85);
+  const boxRib = box(`${name}_BoxRib`, 2.55, 0.12, 5.0, mats.steelDark, root);
+  boxRib.position.set(0, 3.25, -0.85);
 
   for (const [wx, wz] of [
     [-1.1, 2.6],
@@ -267,7 +302,7 @@ function createBoxTruck(
     [-1.1, -2.6],
     [1.1, -2.6],
   ] as const) {
-    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5);
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5, mats.craneYellow);
   }
   const brakes = addBrakeLights(name, root, mats, -3.35, 1.1, 1.0);
   return { root, brakeL: brakes.l, brakeR: brakes.r };
@@ -279,31 +314,45 @@ function createMixer(
 ): { root: Object3D; brakeL: Mesh; brakeR: Mesh } {
   const root = group(name);
 
-  const chassis = box(`${name}_Chassis`, 2.4, 0.45, 7.2, mats.steel, root);
+  const chassis = box(`${name}_Chassis`, 2.4, 0.42, 7.2, mats.steel, root);
   chassis.position.set(0, 0.75, -0.4);
 
-  const cab = box(`${name}_Cab`, 2.5, 2.3, 2.5, mats.craneYellow, root);
-  cab.position.set(0, 1.85, 2.9);
+  const cab = box(`${name}_Cab`, 2.4, 2.1, 2.3, mats.craneYellow, root);
+  cab.position.set(0, 1.9, 2.95);
+  const cabRoof = box(`${name}_CabRoof`, 2.3, 0.22, 2.15, mats.craneYellow, root);
+  cabRoof.position.set(0, 3.05, 2.9);
+  const bumper = box(`${name}_Bumper`, 2.5, 0.4, 0.4, mats.steelDark, root);
+  bumper.position.set(0, 0.7, 4.15);
 
-  const glass = box(`${name}_Glass`, 2.1, 0.95, 0.12, mats.glassDark, root);
-  glass.position.set(0, 2.15, 4.1);
+  const glass = box(`${name}_Glass`, 2.05, 0.9, 0.1, mats.glassDark, root);
+  glass.position.set(0, 2.2, 4.05);
 
   const fender = box(`${name}_Fender`, 2.55, 0.35, 1.8, mats.steel, root);
   fender.position.set(0, 1.05, 3.0);
 
-  const drum = cyl(`${name}_Drum`, 1.2, 1.2, 4.0, mats.steel, root, 20);
+  // Tapered drum (wider mid, narrower ends) + spiral fins
+  const drum = cyl(`${name}_Drum`, 1.05, 1.25, 3.6, mats.steel, root, 24);
   drum.rotation.x = Math.PI / 2 + (15 * Math.PI) / 180;
-  drum.position.set(0, 2.15, -1.35);
+  drum.position.set(0, 2.2, -1.2);
+  const drumRear = cyl(`${name}_DrumRear`, 0.95, 1.05, 0.9, mats.steelDark, root, 20);
+  drumRear.rotation.x = Math.PI / 2 + (15 * Math.PI) / 180;
+  drumRear.position.set(0, 1.85, -3.0);
+  for (let f = 0; f < 4; f++) {
+    const fin = box(`${name}_DrumFin_${f}`, 0.08, 0.35, 3.2, mats.truckWhite, root);
+    fin.position.set(0, 2.2, -1.25);
+    fin.rotation.x = (15 * Math.PI) / 180;
+    fin.rotation.z = (f * Math.PI) / 2;
+  }
 
-  const drumCap = cyl(`${name}_DrumCap`, 1.05, 1.05, 0.2, mats.truckWhite, root, 16);
+  const drumCap = cyl(`${name}_DrumCap`, 0.9, 0.9, 0.22, mats.truckWhite, root, 16);
   drumCap.rotation.x = Math.PI / 2 + (15 * Math.PI) / 180;
   drumCap.position.set(0, 2.55, 0.55);
 
-  const hopper = box(`${name}_Hopper`, 1.4, 0.7, 1.2, mats.truckWhite, root);
-  hopper.position.set(0, 3.05, 0.9);
+  const hopper = box(`${name}_Hopper`, 1.35, 0.65, 1.1, mats.truckWhite, root);
+  hopper.position.set(0, 3.1, 0.95);
   hopper.rotation.x = 0.2;
 
-  const chute = box(`${name}_Chute`, 0.45, 0.25, 1.6, mats.steel, root);
+  const chute = box(`${name}_Chute`, 0.42, 0.22, 1.6, mats.steel, root);
   chute.position.set(0.9, 1.35, -3.2);
   chute.rotation.z = -0.35;
   chute.rotation.x = 0.25;
@@ -318,7 +367,7 @@ function createMixer(
     [-1.15, -3.4],
     [1.15, -3.4],
   ] as const) {
-    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5);
+    addWheel(`${name}_Wheel_${wx}_${wz}`, root, mats.wheel, wx, wz, 0.5, mats.craneYellow);
   }
   const brakes = addBrakeLights(name, root, mats, -4.0, 1.0, 1.05);
   return { root, brakeL: brakes.l, brakeR: brakes.r };
@@ -330,11 +379,12 @@ function createParkedVan(mats: SharedMaterials, parent: Object3D): void {
   van.position.set(-33.5, 0.02, 28);
   van.rotation.y = Math.PI * 0.5; // nose toward west lane
 
-  const body = box("AmbientVanParked_Body", 2.1, 2.2, 5.0, mats.truckBlue, van);
-  body.position.y = 1.4;
-
-  const glass = box("AmbientVanParked_Glass", 1.8, 0.8, 0.1, mats.glassDark, van);
-  glass.position.set(0, 1.7, 2.45);
+  const body = box("AmbientVanParked_Body", 2.1, 2.0, 4.8, mats.truckBlue, van);
+  body.position.y = 1.35;
+  const roof = box("AmbientVanParked_Roof", 2.0, 0.25, 4.6, mats.truckBlue, van);
+  roof.position.y = 2.45;
+  const glass = box("AmbientVanParked_Glass", 1.8, 0.75, 0.1, mats.glassDark, van);
+  glass.position.set(0, 1.75, 2.35);
 
   for (const [wx, wz] of [
     [-0.9, 1.6],

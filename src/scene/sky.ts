@@ -1,8 +1,6 @@
 /**
- * Friendly gradient sky + simple cloud planes (canvas textures).
- * Keeps soft cartoon-real look; no HDRI.
+ * Realistic-leaning gradient sky + soft cloud planes (canvas, no HDRI).
  */
-
 import {
   CanvasTexture,
   Color,
@@ -13,21 +11,22 @@ import {
   Scene,
   SRGBColorSpace,
 } from "three";
-import { Palette } from "../config/palette";
 
 function makeGradientSkyTexture(): CanvasTexture {
-  const w = 4;
-  const h = 256;
+  const w = 8;
+  const h = 512;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   const grad = ctx.createLinearGradient(0, 0, 0, h);
-  // Top → horizon: deeper soft blue to warm haze
-  grad.addColorStop(0, "#7EB8D8");
-  grad.addColorStop(0.45, Palette.sky);
-  grad.addColorStop(0.78, "#C5E2F0");
-  grad.addColorStop(1, Palette.haze);
+  // Zenith → horizon: deeper blue, atmospheric haze
+  grad.addColorStop(0, "#3A6FA0");
+  grad.addColorStop(0.28, "#5A98C4");
+  grad.addColorStop(0.55, "#8EBED8");
+  grad.addColorStop(0.78, "#C5DCE8");
+  grad.addColorStop(0.92, "#E2EEF2");
+  grad.addColorStop(1, "#F0E8DC");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
   const tex = new CanvasTexture(canvas);
@@ -44,13 +43,13 @@ function makeCloudTexture(seed: number): CanvasTexture {
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, size, size);
 
-  // Soft puffy blobs — friendly, not photoreal
   const blobs = [
-    { x: 0.35, y: 0.5, r: 0.28, a: 0.55 },
-    { x: 0.52, y: 0.45, r: 0.32, a: 0.5 },
-    { x: 0.68, y: 0.52, r: 0.24, a: 0.45 },
-    { x: 0.45, y: 0.58, r: 0.22, a: 0.4 },
-    { x: 0.58, y: 0.38, r: 0.18, a: 0.35 },
+    { x: 0.32, y: 0.5, r: 0.3, a: 0.5 },
+    { x: 0.5, y: 0.44, r: 0.34, a: 0.45 },
+    { x: 0.68, y: 0.52, r: 0.26, a: 0.4 },
+    { x: 0.44, y: 0.58, r: 0.24, a: 0.35 },
+    { x: 0.58, y: 0.36, r: 0.2, a: 0.3 },
+    { x: 0.4, y: 0.4, r: 0.16, a: 0.28 },
   ];
   for (const b of blobs) {
     const gx = b.x * size + (seed % 7) * 2;
@@ -58,7 +57,7 @@ function makeCloudTexture(seed: number): CanvasTexture {
     const gr = b.r * size;
     const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
     g.addColorStop(0, `rgba(255,255,255,${b.a})`);
-    g.addColorStop(0.55, `rgba(255,255,255,${b.a * 0.45})`);
+    g.addColorStop(0.5, `rgba(245,248,252,${b.a * 0.4})`);
     g.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
@@ -71,11 +70,9 @@ function makeCloudTexture(seed: number): CanvasTexture {
 }
 
 export function createSky(scene: Scene): void {
-  // Gradient backdrop via scene.background canvas
   scene.background = makeGradientSkyTexture();
-  // Warm haze fog stays; tint slightly toward sky mid
   if (scene.fog && "color" in scene.fog) {
-    (scene.fog as { color: Color }).color.set(Palette.haze);
+    (scene.fog as { color: Color }).color.set("#D8E6EC");
   }
 
   const cloudSpecs: {
@@ -89,39 +86,10 @@ export function createSky(scene: Scene): void {
     seed: number;
     opacity: number;
   }[] = [
-    {
-      name: "CloudA",
-      x: -55,
-      y: 48,
-      z: -70,
-      w: 42,
-      h: 14,
-      rotY: 0.15,
-      seed: 1,
-      opacity: 0.85,
-    },
-    {
-      name: "CloudB",
-      x: 40,
-      y: 56,
-      z: -90,
-      w: 52,
-      h: 16,
-      rotY: -0.25,
-      seed: 4,
-      opacity: 0.75,
-    },
-    {
-      name: "CloudC",
-      x: 10,
-      y: 42,
-      z: 85,
-      w: 36,
-      h: 12,
-      rotY: 0.4,
-      seed: 9,
-      opacity: 0.7,
-    },
+    { name: "CloudA", x: -60, y: 52, z: -75, w: 48, h: 15, rotY: 0.12, seed: 1, opacity: 0.72 },
+    { name: "CloudB", x: 45, y: 60, z: -95, w: 58, h: 17, rotY: -0.22, seed: 4, opacity: 0.65 },
+    { name: "CloudC", x: 12, y: 46, z: 90, w: 40, h: 13, rotY: 0.35, seed: 9, opacity: 0.6 },
+    { name: "CloudD", x: -40, y: 70, z: 50, w: 36, h: 11, rotY: -0.5, seed: 14, opacity: 0.5 },
   ];
 
   for (const c of cloudSpecs) {
@@ -138,8 +106,7 @@ export function createSky(scene: Scene): void {
     mesh.name = c.name;
     mesh.position.set(c.x, c.y, c.z);
     mesh.rotation.y = c.rotY;
-    // Slight tilt so they read as soft volume from orbit cam
-    mesh.rotation.x = -0.08;
+    mesh.rotation.x = -0.06;
     mesh.renderOrder = -1;
     scene.add(mesh);
   }
